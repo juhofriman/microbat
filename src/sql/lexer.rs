@@ -1,0 +1,377 @@
+use crate::sql::tokens::Token;
+use std::fmt::{Display, Formatter};
+
+/// SourceRef describes a location in parsed input.
+#[derive(Debug)]
+pub struct SourceRef {
+    column: u32,
+    line: u32,
+}
+
+impl Display for SourceRef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}:{}]", self.line, self.column)
+    }
+}
+
+/// General lexing error occurred during the lexing phase
+#[derive(Debug)]
+pub struct LexingError {
+    msg: LexingErrors,
+    location: SourceRef,
+}
+
+impl Display for LexingError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Lexing Error: {} @ {}", self.msg, self.location)
+    }
+}
+
+/// All possible lexing errors
+#[derive(Debug)]
+enum LexingErrors {
+    StringNotTerminated,
+}
+
+impl Display for LexingErrors {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LexingErrors::StringNotTerminated => write!(f, "String was not terminated"),
+        }
+    }
+}
+
+/// Consumable lexer
+pub struct Lexer {
+    tokens: Vec<Token>,
+    pointer: usize,
+}
+
+impl Lexer {
+    pub fn new(source: &str) -> Result<Lexer, LexingError> {
+        let mut buffer = lexing_buffer::LexBuffer::new();
+        let mut tokens: Vec<Token> = vec![];
+        let mut character_iter = source.chars().peekable();
+
+        while let Some(char) = character_iter.next() {
+            if let Some(token) = buffer.push_char(char, character_iter.peek())? {
+                tokens.push(token);
+            }
+        }
+
+        Ok(Lexer { pointer: 0, tokens })
+    }
+
+    /// Advance the lexer and get the next Token
+    pub fn next(&mut self) -> Option<&Token> {
+        let token = self.tokens.get(self.pointer);
+        self.pointer += 1;
+        token
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sql::tokens::TokenTypes;
+
+    #[test]
+    fn test_lexer_for_real_sql() {
+        let mut lexer = Lexer::new("SELECT a, b, c FROM foobar WHERE a < b").unwrap();
+
+        assert_eq!(lexer.next().unwrap().token_type, TokenTypes::SELECT);
+        assert_eq!(
+            lexer.next().unwrap().token_type,
+            TokenTypes::IDENTIFIER(String::from("a"))
+        );
+        assert_eq!(lexer.next().unwrap().token_type, TokenTypes::COMMA);
+        assert_eq!(
+            lexer.next().unwrap().token_type,
+            TokenTypes::IDENTIFIER(String::from("b"))
+        );
+        assert_eq!(lexer.next().unwrap().token_type, TokenTypes::COMMA);
+        assert_eq!(
+            lexer.next().unwrap().token_type,
+            TokenTypes::IDENTIFIER(String::from("c"))
+        );
+        assert_eq!(lexer.next().unwrap().token_type, TokenTypes::FROM);
+        assert_eq!(
+            lexer.next().unwrap().token_type,
+            TokenTypes::IDENTIFIER(String::from("foobar"))
+        );
+        assert_eq!(lexer.next().unwrap().token_type, TokenTypes::WHERE);
+        assert_eq!(
+            lexer.next().unwrap().token_type,
+            TokenTypes::IDENTIFIER(String::from("a"))
+        );
+        assert_eq!(lexer.next().unwrap().token_type, TokenTypes::LT);
+        assert_eq!(
+            lexer.next().unwrap().token_type,
+            TokenTypes::IDENTIFIER(String::from("b"))
+        );
+        assert!(lexer.next().is_none());
+    }
+}
+
+mod lexing_buffer {
+    use crate::sql::lexer::{LexingError, LexingErrors, SourceRef};
+    use crate::sql::tokens::{Token, TokenTypes};
+
+    /// State enum for lexer. Lexer behaves differently in different modes
+    #[derive(PartialEq, Debug)]
+    enum LexingState {
+        Normal,
+        Integer,
+        Float,
+        String,
+    }
+
+    /// LexBuffer is used for stateful lexing the given input.
+    /// Pushing character to LexBuffer returns Ok(Some(Token)) when new
+    /// complete token is created.
+    ///
+    /// LexingErrors are rare, but for an example non terminated strings fail
+    /// lexing with LexingError.
+    ///
+    /// Use LexBuffer::new for constructing new instance.
+    pub struct LexBuffer {
+        buffer: String,
+        mode: LexingState,
+        current_line: u32,
+        current_column: u32,
+        token_column_marker: u32,
+    }
+
+    impl LexBuffer {
+        /// Create new LexBuffer
+        pub fn new() -> LexBuffer {
+            LexBuffer {
+                buffer: String::new(),
+                mode: LexingState::Normal,
+                current_line: 1,
+                current_column: 1,
+                token_column_marker: 1,
+            }
+        }
+
+        /// Pushes new character into buffer. LexBuffer needs to be able to
+        /// peek next character as well and this Option<&char> must be passed in.
+        ///
+        /// If peek is None, it is considered to be the final character in input.
+        pub fn push_char(
+            &mut self,
+            current_char: char,
+            peek: Option<&char>,
+        ) -> Result<Option<Token>, LexingError> {
+            self.proceed_counters();
+            if current_char.is_whitespace() {
+                self.token_column_marker += 1;
+                return Ok(None);
+            }
+
+            self.buffer.push(current_char);
+
+            if LexBuffer::is_delimiting(&current_char) {
+                return self.pop_token();
+            }
+
+            match peek {
+                Some(peek_value) => {
+                    if LexBuffer::is_delimiting(peek_value) {
+                        return self.pop_token();
+                    }
+                    return Ok(None);
+                }
+                None => self.pop_token(),
+            }
+        }
+
+        fn is_delimiting(character: &char) -> bool {
+            return character.is_whitespace()
+                || *character == '+'
+                || *character == ','
+                || *character == '<';
+        }
+
+        fn pop_token(&mut self) -> Result<Option<Token>, LexingError> {
+            match self.buffer.as_str() {
+                "SELECT" => self.create_token_and_reset(TokenTypes::SELECT),
+                "WHERE" => self.create_token_and_reset(TokenTypes::WHERE),
+                "FROM" => self.create_token_and_reset(TokenTypes::FROM),
+                "+" => self.create_token_and_reset(TokenTypes::PLUS),
+                "," => self.create_token_and_reset(TokenTypes::COMMA),
+                "<" => self.create_token_and_reset(TokenTypes::LT),
+                _ => self.create_token_and_reset(TokenTypes::IDENTIFIER(self.buffer.clone())),
+            }
+        }
+
+        fn proceed_counters(&mut self) {
+            self.current_column += 1
+        }
+
+        fn create_token_and_reset(
+            &mut self,
+            token_type: TokenTypes,
+        ) -> Result<Option<Token>, LexingError> {
+            self.buffer.clear();
+            let new_token = Token {
+                token_type,
+                source_ref: self.current_source_marker(),
+            };
+            self.token_column_marker = self.current_column;
+            Ok(Some(new_token))
+        }
+
+        fn current_source_marker(&self) -> SourceRef {
+            SourceRef {
+                column: self.token_column_marker,
+                line: self.current_line,
+            }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use crate::sql::tokens::TokenTypes::{IDENTIFIER, PLUS, SELECT, WHERE};
+
+        #[test]
+        fn test_pops_from_end_of_stream() {
+            let mut buffer = LexBuffer::new();
+            does_not_pop(buffer.push_char('A', Some(&'B')));
+            does_not_pop(buffer.push_char('B', Some(&'C')));
+            pops_token(
+                buffer.push_char('C', None),
+                IDENTIFIER(String::from("ABC")),
+                1,
+            );
+        }
+
+        #[test]
+        fn test_pops_with_whitespace() {
+            let mut buffer = LexBuffer::new();
+            does_not_pop(buffer.push_char('A', Some(&'B')));
+            does_not_pop(buffer.push_char('B', Some(&'C')));
+            pops_token(
+                buffer.push_char('C', Some(&' ')),
+                IDENTIFIER(String::from("ABC")),
+                1,
+            );
+            does_not_pop(buffer.push_char('D', Some(&'E')));
+            does_not_pop(buffer.push_char('E', Some(&'F')));
+            pops_token(
+                buffer.push_char('F', None),
+                IDENTIFIER(String::from("DEF")),
+                4,
+            );
+        }
+
+        #[test]
+        fn test_does_not_pop_too_early() {
+            let mut buffer = LexBuffer::new();
+            does_not_pop(buffer.push_char('S', Some(&'E')));
+            does_not_pop(buffer.push_char('E', Some(&'L')));
+            does_not_pop(buffer.push_char('L', Some(&'E')));
+            does_not_pop(buffer.push_char('E', Some(&'C')));
+            does_not_pop(buffer.push_char('C', Some(&'T')));
+            does_not_pop(buffer.push_char('T', Some(&'E')));
+            does_not_pop(buffer.push_char('E', Some(&'D')));
+            pops_token(
+                buffer.push_char('D', None),
+                IDENTIFIER(String::from("SELECTED")),
+                1,
+            );
+        }
+
+        #[test]
+        fn test_support_for_delimiting_tokens() {
+            let mut buffer = LexBuffer::new();
+            pops_token(
+                buffer.push_char('a', Some(&'+')),
+                IDENTIFIER(String::from("a")),
+                1,
+            );
+            pops_token(buffer.push_char('+', Some(&'b')), PLUS, 2);
+            pops_token(
+                buffer.push_char('b', None),
+                IDENTIFIER(String::from("b")),
+                3,
+            );
+        }
+
+        #[test]
+        fn test_support_for_delimiting_tokens_with_whitespace() {
+            let mut buffer = LexBuffer::new();
+            pops_token(
+                buffer.push_char('a', Some(&' ')),
+                IDENTIFIER(String::from("a")),
+                1,
+            );
+            does_not_pop(buffer.push_char(' ', Some(&'+')));
+            pops_token(buffer.push_char('+', Some(&' ')), PLUS, 3);
+            does_not_pop(buffer.push_char(' ', Some(&'b')));
+            pops_token(
+                buffer.push_char('b', None),
+                IDENTIFIER(String::from("b")),
+                5,
+            );
+        }
+
+        #[test]
+        fn test_filling_and_auto_popping_ready_buffer() {
+            let mut buffer = LexBuffer::new();
+            does_not_pop(buffer.push_char('S', Some(&'E')));
+            does_not_pop(buffer.push_char('E', Some(&'L')));
+            does_not_pop(buffer.push_char('L', Some(&'E')));
+            does_not_pop(buffer.push_char('E', Some(&'C')));
+            does_not_pop(buffer.push_char('C', Some(&'T')));
+            pops_token(buffer.push_char('T', Some(&' ')), SELECT, 1);
+            // Whitespace
+            does_not_pop(buffer.push_char(' ', Some(&'W')));
+            // Here the buffer must be reset
+            does_not_pop(buffer.push_char('W', Some(&'H')));
+            does_not_pop(buffer.push_char('H', Some(&'E')));
+            does_not_pop(buffer.push_char('E', Some(&'R')));
+            does_not_pop(buffer.push_char('R', Some(&'E')));
+            pops_token(buffer.push_char('E', None), WHERE, 8);
+        }
+
+        fn does_not_pop(result: Result<Option<Token>, LexingError>) {
+            assert!(
+                result.is_ok(),
+                "Expecting result to be Ok, but was Err: {:?}",
+                result.err().unwrap()
+            );
+            let ok_result = result.unwrap();
+            assert!(
+                ok_result.is_none(),
+                "Expecting result to be None but was Some {:?}",
+                ok_result
+            );
+        }
+
+        fn pops_token(
+            result: Result<Option<Token>, LexingError>,
+            expected_type: TokenTypes,
+            expected_column: u32,
+        ) {
+            assert!(
+                result.is_ok(),
+                "Expecting result to be Ok, but was Err: {:?}",
+                result.err().unwrap()
+            );
+            let ok_result = result.unwrap();
+            assert!(
+                ok_result.is_some(),
+                "Expecting result to be Some but was None"
+            );
+            let token = ok_result.unwrap();
+            assert_eq!(token.token_type, expected_type);
+            assert_eq!(
+                token.source_ref.column, expected_column,
+                "Token column was wrong"
+            );
+            assert_eq!(token.source_ref.line, 1, "Current line was wrong");
+        }
+    }
+}
