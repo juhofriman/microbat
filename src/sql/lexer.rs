@@ -111,6 +111,50 @@ mod tests {
     }
 
     #[test]
+    fn test_lexer_corner_cases() {
+        lexes_to(
+            "a=b",
+            vec![
+                TokenTypes::IDENTIFIER(String::from("a")),
+                TokenTypes::EQ,
+                TokenTypes::IDENTIFIER(String::from("b")),
+            ],
+        );
+        lexes_to(
+            "a<b",
+            vec![
+                TokenTypes::IDENTIFIER(String::from("a")),
+                TokenTypes::LT,
+                TokenTypes::IDENTIFIER(String::from("b")),
+            ],
+        );
+        lexes_to(
+            "a>b",
+            vec![
+                TokenTypes::IDENTIFIER(String::from("a")),
+                TokenTypes::GT,
+                TokenTypes::IDENTIFIER(String::from("b")),
+            ],
+        );
+        lexes_to(
+            "a<=b",
+            vec![
+                TokenTypes::IDENTIFIER(String::from("a")),
+                TokenTypes::LTE,
+                TokenTypes::IDENTIFIER(String::from("b")),
+            ],
+        );
+        lexes_to(
+            "a>=b",
+            vec![
+                TokenTypes::IDENTIFIER(String::from("a")),
+                TokenTypes::GTE,
+                TokenTypes::IDENTIFIER(String::from("b")),
+            ],
+        );
+    }
+
+    #[test]
     fn test_lexer_for_real_sql() {
         lexes_to(
             "SELECT a, b, c FROM foo WHERE a = b;",
@@ -175,6 +219,7 @@ mod lexing_buffer {
     #[derive(PartialEq, Debug)]
     enum LexingState {
         Normal,
+        ForcePop,
         Integer,
         Float,
         String,
@@ -225,12 +270,18 @@ mod lexing_buffer {
 
             self.buffer.push(current_char.to_ascii_lowercase());
 
+            if self.mode == LexingState::ForcePop {
+                self.mode = LexingState::Normal;
+                return self.pop_token();
+            }
+
             match peek {
                 Some(peek_value) => {
-                    // TODO: make me clear: += works wrong now
-                    if LexBuffer::is_delimiting(&current_char)
-                        && !LexBuffer::is_continuity(peek_value)
-                    {
+                    if LexBuffer::makes_continuity_token(&current_char, peek_value) {
+                        self.mode = LexingState::ForcePop;
+                        return Ok(None);
+                    }
+                    if LexBuffer::is_delimiting(&current_char) {
                         return self.pop_token();
                     }
                     if LexBuffer::is_delimiting(peek_value) {
@@ -251,8 +302,16 @@ mod lexing_buffer {
                 || *character == ';'
                 || *character == '+'
                 || *character == ','
+                || *character == '='
                 || *character == '<'
                 || *character == '>';
+        }
+
+        fn makes_continuity_token(current: &char, peek: &char) -> bool {
+            if *peek == '=' {
+                return *current == '<' || *current == '>';
+            }
+            return false;
         }
 
         fn pop_token(&mut self) -> Result<Option<Token>, LexingError> {
