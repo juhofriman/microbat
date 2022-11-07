@@ -42,13 +42,16 @@ impl Display for LexingErrors {
 }
 
 /// Consumable lexer
-pub struct Lexer {
+///
+/// Bear in mind that every single character is lower cased. Every identifier
+/// becomes lower case internally FOO => foo and so on.
+pub struct SqlLexer {
     tokens: Vec<Token>,
     pointer: usize,
 }
 
-impl Lexer {
-    pub fn new(source: &str) -> Result<Lexer, LexingError> {
+impl SqlLexer {
+    pub fn new(source: &str) -> Result<SqlLexer, LexingError> {
         let mut buffer = lexing_buffer::LexBuffer::new();
         let mut tokens: Vec<Token> = vec![];
         let mut character_iter = source.chars().peekable();
@@ -59,7 +62,7 @@ impl Lexer {
             }
         }
 
-        Ok(Lexer { pointer: 0, tokens })
+        Ok(SqlLexer { pointer: 0, tokens })
     }
 
     /// Advance the lexer and get the next Token
@@ -76,8 +79,46 @@ mod tests {
     use crate::sql::tokens::TokenTypes;
 
     #[test]
+    fn test_lexer_for_tokens() {
+        lexes_to("SELECT", TokenTypes::SELECT);
+        lexes_to("UPDATE", TokenTypes::UPDATE);
+        lexes_to("INSERT", TokenTypes::INSERT);
+        lexes_to("DELETE", TokenTypes::DELETE);
+        lexes_to("WHERE", TokenTypes::WHERE);
+        lexes_to("FROM", TokenTypes::FROM);
+        lexes_to("select", TokenTypes::SELECT);
+        lexes_to("update", TokenTypes::UPDATE);
+        lexes_to("insert", TokenTypes::INSERT);
+        lexes_to("delete", TokenTypes::DELETE);
+        lexes_to("where", TokenTypes::WHERE);
+        lexes_to("from", TokenTypes::FROM);
+        lexes_to("Select", TokenTypes::SELECT);
+        lexes_to("upDAte", TokenTypes::UPDATE);
+        lexes_to("inserT", TokenTypes::INSERT);
+        lexes_to("deLEte", TokenTypes::DELETE);
+        lexes_to("WHERe", TokenTypes::WHERE);
+        lexes_to("fRoM", TokenTypes::FROM);
+
+        lexes_to(",", TokenTypes::COMMA);
+
+        lexes_to("=", TokenTypes::EQ);
+        lexes_to("<", TokenTypes::LT);
+        lexes_to(">", TokenTypes::GT);
+    }
+
+    fn lexes_to(input: &str, expected_token: TokenTypes) {
+        assert_eq!(
+            SqlLexer::new(input).unwrap().next().unwrap().token_type,
+            expected_token,
+            "`{}` did to lex to {:?}",
+            input,
+            expected_token
+        );
+    }
+
+    #[test]
     fn test_lexer_for_real_sql() {
-        let mut lexer = Lexer::new("SELECT a, b, c FROM foobar WHERE a < b").unwrap();
+        let mut lexer = SqlLexer::new("SELECT a, b, c FROM foobar WHERE a < b").unwrap();
 
         assert_eq!(lexer.next().unwrap().token_type, TokenTypes::SELECT);
         assert_eq!(
@@ -169,7 +210,7 @@ mod lexing_buffer {
                 return Ok(None);
             }
 
-            self.buffer.push(current_char);
+            self.buffer.push(current_char.to_ascii_lowercase());
 
             if LexBuffer::is_delimiting(&current_char) {
                 return self.pop_token();
@@ -195,12 +236,22 @@ mod lexing_buffer {
 
         fn pop_token(&mut self) -> Result<Option<Token>, LexingError> {
             match self.buffer.as_str() {
-                "SELECT" => self.create_token_and_reset(TokenTypes::SELECT),
-                "WHERE" => self.create_token_and_reset(TokenTypes::WHERE),
-                "FROM" => self.create_token_and_reset(TokenTypes::FROM),
-                "+" => self.create_token_and_reset(TokenTypes::PLUS),
+                // Reserved words
+                "select" => self.create_token_and_reset(TokenTypes::SELECT),
+                "update" => self.create_token_and_reset(TokenTypes::UPDATE),
+                "insert" => self.create_token_and_reset(TokenTypes::INSERT),
+                "delete" => self.create_token_and_reset(TokenTypes::DELETE),
+                "where" => self.create_token_and_reset(TokenTypes::WHERE),
+                "from" => self.create_token_and_reset(TokenTypes::FROM),
+                // Separators
                 "," => self.create_token_and_reset(TokenTypes::COMMA),
+                // Operators
+                "=" => self.create_token_and_reset(TokenTypes::EQ),
                 "<" => self.create_token_and_reset(TokenTypes::LT),
+                ">" => self.create_token_and_reset(TokenTypes::GT),
+                "<=" => self.create_token_and_reset(TokenTypes::LTE),
+                ">=" => self.create_token_and_reset(TokenTypes::GTE),
+                "+" => self.create_token_and_reset(TokenTypes::PLUS),
                 _ => self.create_token_and_reset(TokenTypes::IDENTIFIER(self.buffer.clone())),
             }
         }
@@ -242,7 +293,7 @@ mod lexing_buffer {
             does_not_pop(buffer.push_char('B', Some(&'C')));
             pops_token(
                 buffer.push_char('C', None),
-                IDENTIFIER(String::from("ABC")),
+                IDENTIFIER(String::from("abc")),
                 1,
             );
         }
@@ -254,14 +305,14 @@ mod lexing_buffer {
             does_not_pop(buffer.push_char('B', Some(&'C')));
             pops_token(
                 buffer.push_char('C', Some(&' ')),
-                IDENTIFIER(String::from("ABC")),
+                IDENTIFIER(String::from("abc")),
                 1,
             );
             does_not_pop(buffer.push_char('D', Some(&'E')));
             does_not_pop(buffer.push_char('E', Some(&'F')));
             pops_token(
                 buffer.push_char('F', None),
-                IDENTIFIER(String::from("DEF")),
+                IDENTIFIER(String::from("def")),
                 4,
             );
         }
@@ -278,7 +329,7 @@ mod lexing_buffer {
             does_not_pop(buffer.push_char('E', Some(&'D')));
             pops_token(
                 buffer.push_char('D', None),
-                IDENTIFIER(String::from("SELECTED")),
+                IDENTIFIER(String::from("selected")),
                 1,
             );
         }

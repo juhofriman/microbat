@@ -1,9 +1,9 @@
 mod sql;
 
-use crate::sql::lexer::Lexer;
+use crate::sql::lexer::SqlLexer;
 
 fn main() {
-    match Lexer::new("SELECT a, b, c FROM foo") {
+    match SqlLexer::new("SELECT a, b, c FROM foo") {
         Ok(mut lexer) => {
             while let Some(token) = lexer.next() {
                 println!("{}", token);

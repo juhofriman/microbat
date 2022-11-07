@@ -15,6 +15,7 @@ impl Display for Token {
 
 #[derive(Debug, PartialEq)]
 pub enum TokenTypes {
+    // Reserved words
     SELECT,
     UPDATE,
     INSERT,
@@ -22,19 +23,17 @@ pub enum TokenTypes {
     WHERE,
     FROM,
 
+    // Separators
     COMMA,
 
+    // Operators
     EQ,
     LT,
     GT,
+    LTE,
+    GTE,
 
     PLUS,
 
-    LPAR,
-    RPAR,
-
     IDENTIFIER(String),
-    STRING(String),
-    INTEGER,
-    FLOAT,
 }
