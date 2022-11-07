@@ -80,77 +80,90 @@ mod tests {
 
     #[test]
     fn test_lexer_for_tokens() {
-        lexes_to("SELECT", TokenTypes::SELECT);
-        lexes_to("UPDATE", TokenTypes::UPDATE);
-        lexes_to("INSERT", TokenTypes::INSERT);
-        lexes_to("DELETE", TokenTypes::DELETE);
-        lexes_to("WHERE", TokenTypes::WHERE);
-        lexes_to("FROM", TokenTypes::FROM);
-        lexes_to("select", TokenTypes::SELECT);
-        lexes_to("update", TokenTypes::UPDATE);
-        lexes_to("insert", TokenTypes::INSERT);
-        lexes_to("delete", TokenTypes::DELETE);
-        lexes_to("where", TokenTypes::WHERE);
-        lexes_to("from", TokenTypes::FROM);
-        lexes_to("Select", TokenTypes::SELECT);
-        lexes_to("upDAte", TokenTypes::UPDATE);
-        lexes_to("inserT", TokenTypes::INSERT);
-        lexes_to("deLEte", TokenTypes::DELETE);
-        lexes_to("WHERe", TokenTypes::WHERE);
-        lexes_to("fRoM", TokenTypes::FROM);
+        lexes_to("SELECT", vec![TokenTypes::SELECT]);
+        lexes_to("UPDATE", vec![TokenTypes::UPDATE]);
+        lexes_to("INSERT", vec![TokenTypes::INSERT]);
+        lexes_to("DELETE", vec![TokenTypes::DELETE]);
+        lexes_to("WHERE", vec![TokenTypes::WHERE]);
+        lexes_to("FROM", vec![TokenTypes::FROM]);
+        lexes_to("select", vec![TokenTypes::SELECT]);
+        lexes_to("update", vec![TokenTypes::UPDATE]);
+        lexes_to("insert", vec![TokenTypes::INSERT]);
+        lexes_to("delete", vec![TokenTypes::DELETE]);
+        lexes_to("where", vec![TokenTypes::WHERE]);
+        lexes_to("from", vec![TokenTypes::FROM]);
+        lexes_to("Select", vec![TokenTypes::SELECT]);
+        lexes_to("upDAte", vec![TokenTypes::UPDATE]);
+        lexes_to("inserT", vec![TokenTypes::INSERT]);
+        lexes_to("deLEte", vec![TokenTypes::DELETE]);
+        lexes_to("WHERe", vec![TokenTypes::WHERE]);
+        lexes_to("fRoM", vec![TokenTypes::FROM]);
 
-        lexes_to(",", TokenTypes::COMMA);
+        lexes_to(",", vec![TokenTypes::COMMA]);
 
-        lexes_to("=", TokenTypes::EQ);
-        lexes_to("<", TokenTypes::LT);
-        lexes_to(">", TokenTypes::GT);
-    }
+        lexes_to("=", vec![TokenTypes::EQ]);
+        lexes_to("<", vec![TokenTypes::LT]);
+        lexes_to(">", vec![TokenTypes::GT]);
+        lexes_to("<=", vec![TokenTypes::LTE]);
+        lexes_to("<=", vec![TokenTypes::LTE]);
 
-    fn lexes_to(input: &str, expected_token: TokenTypes) {
-        assert_eq!(
-            SqlLexer::new(input).unwrap().next().unwrap().token_type,
-            expected_token,
-            "`{}` did to lex to {:?}",
-            input,
-            expected_token
-        );
+        lexes_to(";", vec![TokenTypes::TERMINATE]);
     }
 
     #[test]
     fn test_lexer_for_real_sql() {
-        let mut lexer = SqlLexer::new("SELECT a, b, c FROM foobar WHERE a < b").unwrap();
+        lexes_to(
+            "SELECT a, b, c FROM foo WHERE a = b;",
+            vec![
+                TokenTypes::SELECT,
+                TokenTypes::IDENTIFIER(String::from("a")),
+                TokenTypes::COMMA,
+                TokenTypes::IDENTIFIER(String::from("b")),
+                TokenTypes::COMMA,
+                TokenTypes::IDENTIFIER(String::from("c")),
+                TokenTypes::FROM,
+                TokenTypes::IDENTIFIER(String::from("foo")),
+                TokenTypes::WHERE,
+                TokenTypes::IDENTIFIER(String::from("a")),
+                TokenTypes::EQ,
+                TokenTypes::IDENTIFIER(String::from("b")),
+                TokenTypes::TERMINATE,
+            ],
+        );
+        lexes_to(
+            "select a from bar where b <= c;",
+            vec![
+                TokenTypes::SELECT,
+                TokenTypes::IDENTIFIER(String::from("a")),
+                TokenTypes::FROM,
+                TokenTypes::IDENTIFIER(String::from("bar")),
+                TokenTypes::WHERE,
+                TokenTypes::IDENTIFIER(String::from("b")),
+                TokenTypes::LTE,
+                TokenTypes::IDENTIFIER(String::from("c")),
+                TokenTypes::TERMINATE,
+            ],
+        );
+    }
 
-        assert_eq!(lexer.next().unwrap().token_type, TokenTypes::SELECT);
-        assert_eq!(
-            lexer.next().unwrap().token_type,
-            TokenTypes::IDENTIFIER(String::from("a"))
+    fn lexes_to(input: &str, expected_tokens: Vec<TokenTypes>) {
+        let mut lexer = SqlLexer::new(input).unwrap();
+        for (index, expected_token) in expected_tokens.iter().enumerate() {
+            assert_eq!(
+                lexer.next().unwrap().token_type,
+                *expected_token,
+                "`{}` did to lex to {:?} at token index {}",
+                input,
+                expected_token,
+                index
+            );
+        }
+        let more = lexer.next();
+        assert!(
+            more.is_none(),
+            "Lexer had more tokens than expected: {:?}",
+            more.unwrap().token_type
         );
-        assert_eq!(lexer.next().unwrap().token_type, TokenTypes::COMMA);
-        assert_eq!(
-            lexer.next().unwrap().token_type,
-            TokenTypes::IDENTIFIER(String::from("b"))
-        );
-        assert_eq!(lexer.next().unwrap().token_type, TokenTypes::COMMA);
-        assert_eq!(
-            lexer.next().unwrap().token_type,
-            TokenTypes::IDENTIFIER(String::from("c"))
-        );
-        assert_eq!(lexer.next().unwrap().token_type, TokenTypes::FROM);
-        assert_eq!(
-            lexer.next().unwrap().token_type,
-            TokenTypes::IDENTIFIER(String::from("foobar"))
-        );
-        assert_eq!(lexer.next().unwrap().token_type, TokenTypes::WHERE);
-        assert_eq!(
-            lexer.next().unwrap().token_type,
-            TokenTypes::IDENTIFIER(String::from("a"))
-        );
-        assert_eq!(lexer.next().unwrap().token_type, TokenTypes::LT);
-        assert_eq!(
-            lexer.next().unwrap().token_type,
-            TokenTypes::IDENTIFIER(String::from("b"))
-        );
-        assert!(lexer.next().is_none());
     }
 }
 
@@ -212,12 +225,14 @@ mod lexing_buffer {
 
             self.buffer.push(current_char.to_ascii_lowercase());
 
-            if LexBuffer::is_delimiting(&current_char) {
-                return self.pop_token();
-            }
-
             match peek {
                 Some(peek_value) => {
+                    // TODO: make me clear: += works wrong now
+                    if LexBuffer::is_delimiting(&current_char)
+                        && !LexBuffer::is_continuity(peek_value)
+                    {
+                        return self.pop_token();
+                    }
                     if LexBuffer::is_delimiting(peek_value) {
                         return self.pop_token();
                     }
@@ -227,11 +242,17 @@ mod lexing_buffer {
             }
         }
 
+        fn is_continuity(character: &char) -> bool {
+            return *character == '=';
+        }
+
         fn is_delimiting(character: &char) -> bool {
             return character.is_whitespace()
+                || *character == ';'
                 || *character == '+'
                 || *character == ','
-                || *character == '<';
+                || *character == '<'
+                || *character == '>';
         }
 
         fn pop_token(&mut self) -> Result<Option<Token>, LexingError> {
@@ -252,6 +273,7 @@ mod lexing_buffer {
                 "<=" => self.create_token_and_reset(TokenTypes::LTE),
                 ">=" => self.create_token_and_reset(TokenTypes::GTE),
                 "+" => self.create_token_and_reset(TokenTypes::PLUS),
+                ";" => self.create_token_and_reset(TokenTypes::TERMINATE),
                 _ => self.create_token_and_reset(TokenTypes::IDENTIFIER(self.buffer.clone())),
             }
         }

@@ -36,4 +36,6 @@ pub enum TokenTypes {
     PLUS,
 
     IDENTIFIER(String),
+
+    TERMINATE,
 }
