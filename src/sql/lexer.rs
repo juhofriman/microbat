@@ -1,5 +1,8 @@
+use crate::sql::lexer::lexing_buffer::LexBuffer;
 use crate::sql::tokens::Token;
 use std::fmt::{Display, Formatter};
+use std::iter::Peekable;
+use std::str::Chars;
 
 /// SourceRef describes a location in parsed input.
 #[derive(Debug)]
@@ -45,31 +48,29 @@ impl Display for LexingErrors {
 ///
 /// Bear in mind that every single character is lower cased. Every identifier
 /// becomes lower case internally FOO => foo and so on.
-pub struct SqlLexer {
-    tokens: Vec<Token>,
-    pointer: usize,
+pub struct SqlLexer<I: Iterator> {
+    buffer: LexBuffer,
+    source: Peekable<I>,
 }
 
-impl SqlLexer {
-    pub fn new(source: &str) -> Result<SqlLexer, LexingError> {
-        let mut buffer = lexing_buffer::LexBuffer::new();
-        let mut tokens: Vec<Token> = vec![];
-        let mut character_iter = source.chars().peekable();
-
-        while let Some(char) = character_iter.next() {
-            if let Some(token) = buffer.push_char(char, character_iter.peek())? {
-                tokens.push(token);
-            }
+impl SqlLexer<Chars<'_>> {
+    pub fn new(source: &str) -> SqlLexer<Chars> {
+        SqlLexer {
+            source: source.chars().peekable(),
+            buffer: LexBuffer::new(),
         }
-
-        Ok(SqlLexer { pointer: 0, tokens })
     }
 
-    /// Advance the lexer and get the next Token
-    pub fn next(&mut self) -> Option<&Token> {
-        let token = self.tokens.get(self.pointer);
-        self.pointer += 1;
-        token
+    /// Generate next token from lexer.
+    ///
+    /// Returns Ok(None) when EOF is encountered
+    pub fn next(&mut self) -> Result<Option<Token>, LexingError> {
+        while let Some(char) = self.source.next() {
+            if let Some(token) = self.buffer.push_char(char, self.source.peek())? {
+                return Ok(Some(token));
+            }
+        }
+        Ok(None)
     }
 }
 
@@ -246,9 +247,15 @@ mod tests {
     }
 
     fn lexes_to(input: &str, expected_tokens: Vec<TokenTypes>) {
-        let mut lexer = SqlLexer::new(input).unwrap();
+        let mut lexer = SqlLexer::new(input);
         for (index, expected_token) in expected_tokens.iter().enumerate() {
-            let next = lexer.next();
+            let next_res = lexer.next();
+            assert!(
+                next_res.is_ok(),
+                "Lexer returned error {}",
+                next_res.unwrap_err()
+            );
+            let next = next_res.unwrap();
             assert!(
                 next.is_some(),
                 "Expecting {:?} but lexer is finished",
@@ -263,7 +270,13 @@ mod tests {
                 index
             );
         }
-        let more = lexer.next();
+        let more_res = lexer.next();
+        assert!(
+            more_res.is_ok(),
+            "Lexer returned error when finalized {}",
+            more_res.unwrap_err()
+        );
+        let more = more_res.unwrap();
         assert!(
             more.is_none(),
             "Lexer had more tokens than expected: {:?}",
@@ -352,10 +365,6 @@ mod lexing_buffer {
                 }
                 None => self.pop_token(),
             }
-        }
-
-        fn is_continuity(character: &char) -> bool {
-            return *character == '=';
         }
 
         fn is_delimiting(character: &char) -> bool {
