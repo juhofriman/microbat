@@ -31,7 +31,7 @@ impl Display for LexingError {
 }
 
 /// All possible lexing errors
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum LexingErrors {
     StringNotTerminated,
 }
@@ -112,6 +112,8 @@ mod tests {
         lexes_to("<=", vec![TokenTypes::LTE]);
         lexes_to("<=", vec![TokenTypes::LTE]);
 
+        lexes_to("'hello'", vec![TokenTypes::STRING(String::from("hello"))]);
+
         lexes_to(";", vec![TokenTypes::TERMINATE]);
 
         lexes_to(
@@ -126,42 +128,50 @@ mod tests {
 
     #[test]
     fn test_lexer_corner_cases() {
-        lexes_to(
-            "a()",
-            vec![
-                TokenTypes::IDENTIFIER(String::from("a")),
-                TokenTypes::LPARENS,
-                TokenTypes::RPARENS,
-            ],
-        );
-        lexes_to(
-            "a(b)",
-            vec![
-                TokenTypes::IDENTIFIER(String::from("a")),
-                TokenTypes::LPARENS,
-                TokenTypes::IDENTIFIER(String::from("b")),
-                TokenTypes::RPARENS,
-            ],
-        );
-        lexes_to(
-            "a(b, c)",
-            vec![
-                TokenTypes::IDENTIFIER(String::from("a")),
-                TokenTypes::LPARENS,
-                TokenTypes::IDENTIFIER(String::from("b")),
-                TokenTypes::COMMA,
-                TokenTypes::IDENTIFIER(String::from("c")),
-                TokenTypes::RPARENS,
-            ],
-        );
-        lexes_to(
-            "a=b",
-            vec![
-                TokenTypes::IDENTIFIER(String::from("a")),
-                TokenTypes::EQ,
-                TokenTypes::IDENTIFIER(String::from("b")),
-            ],
-        );
+        for input in vec!["a()", "a ()", "a ( )"] {
+            lexes_to(
+                "a()",
+                vec![
+                    TokenTypes::IDENTIFIER(String::from("a")),
+                    TokenTypes::LPARENS,
+                    TokenTypes::RPARENS,
+                ],
+            );
+        }
+        for input in vec!["a(b)", "a (b)", "a (b )", "a ( b)"] {
+            lexes_to(
+                "a(b)",
+                vec![
+                    TokenTypes::IDENTIFIER(String::from("a")),
+                    TokenTypes::LPARENS,
+                    TokenTypes::IDENTIFIER(String::from("b")),
+                    TokenTypes::RPARENS,
+                ],
+            );
+        }
+        for input in vec!["a(b, c)", "a(b,c)", "a (b,c)", "a ( b , c )"] {
+            lexes_to(
+                input,
+                vec![
+                    TokenTypes::IDENTIFIER(String::from("a")),
+                    TokenTypes::LPARENS,
+                    TokenTypes::IDENTIFIER(String::from("b")),
+                    TokenTypes::COMMA,
+                    TokenTypes::IDENTIFIER(String::from("c")),
+                    TokenTypes::RPARENS,
+                ],
+            );
+        }
+        for input in vec!["a=b", "a =b", "a= b", "a  =  b"] {
+            lexes_to(
+                input,
+                vec![
+                    TokenTypes::IDENTIFIER(String::from("a")),
+                    TokenTypes::EQ,
+                    TokenTypes::IDENTIFIER(String::from("b")),
+                ],
+            );
+        }
         lexes_to(
             "a<b",
             vec![
@@ -194,6 +204,27 @@ mod tests {
                 TokenTypes::IDENTIFIER(String::from("b")),
             ],
         );
+        lexes_to(
+            "'hello world'",
+            vec![TokenTypes::STRING(String::from("hello world"))],
+        );
+        lexes_to(
+            "'HELLO world'",
+            vec![TokenTypes::STRING(String::from("HELLO world"))],
+        );
+        lexes_to(
+            "'hello world\twith tab'",
+            vec![TokenTypes::STRING(String::from("hello world\twith tab"))],
+        );
+    }
+
+    #[test]
+    fn test_string_not_terminated() {
+        let mut lexer = SqlLexer::new("'a");
+        let result = lexer.next();
+        assert!(result.is_err(), "Was: {:?}", result);
+        let err = result.unwrap_err();
+        assert_eq!(err.msg, LexingErrors::StringNotTerminated);
     }
 
     #[test]
@@ -264,7 +295,7 @@ mod tests {
             assert_eq!(
                 next.unwrap().token_type,
                 *expected_token,
-                "`{}` did to lex to {:?} at token index {}",
+                "`{}` did not lex to {:?} at token index {}",
                 input,
                 expected_token,
                 index
@@ -337,12 +368,29 @@ mod lexing_buffer {
             peek: Option<&char>,
         ) -> Result<Option<Token>, LexingError> {
             self.proceed_counters();
-            if current_char.is_whitespace() {
+            if current_char.is_whitespace() && self.mode != LexingState::String {
                 self.token_column_marker += 1;
                 return Ok(None);
             }
 
-            self.buffer.push(current_char.to_ascii_lowercase());
+            if current_char == '\'' {
+                return match self.mode {
+                    LexingState::String => {
+                        self.mode = LexingState::Normal;
+                        self.create_token_and_reset(TokenTypes::STRING(self.buffer.clone()))
+                    }
+                    _ => {
+                        self.mode = LexingState::String;
+                        Ok(None)
+                    }
+                };
+            }
+
+            if self.mode == LexingState::String {
+                self.buffer.push(current_char);
+            } else {
+                self.buffer.push(current_char.to_ascii_lowercase());
+            }
 
             if self.mode == LexingState::ForcePop {
                 self.mode = LexingState::Normal;
@@ -351,6 +399,9 @@ mod lexing_buffer {
 
             match peek {
                 Some(peek_value) => {
+                    if self.mode == LexingState::String {
+                        return Ok(None);
+                    }
                     if LexBuffer::makes_continuity_token(&current_char, peek_value) {
                         self.mode = LexingState::ForcePop;
                         return Ok(None);
@@ -363,7 +414,13 @@ mod lexing_buffer {
                     }
                     return Ok(None);
                 }
-                None => self.pop_token(),
+                None => match self.mode {
+                    LexingState::String => Err(LexingError {
+                        msg: LexingErrors::StringNotTerminated,
+                        location: self.current_source_marker(),
+                    }),
+                    _ => self.pop_token(),
+                },
             }
         }
 

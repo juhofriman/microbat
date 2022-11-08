@@ -39,7 +39,9 @@ pub enum TokenTypes {
 
     PLUS,
 
+    // Values
     IDENTIFIER(String),
+    STRING(String),
 
     TERMINATE,
 }
