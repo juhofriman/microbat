@@ -22,9 +22,13 @@ pub enum TokenTypes {
     DELETE,
     WHERE,
     FROM,
+    SET,
 
     // Separators
     COMMA,
+    DOT,
+    LPARENS,
+    RPARENS,
 
     // Operators
     EQ,

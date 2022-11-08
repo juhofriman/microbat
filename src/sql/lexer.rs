@@ -86,6 +86,7 @@ mod tests {
         lexes_to("DELETE", vec![TokenTypes::DELETE]);
         lexes_to("WHERE", vec![TokenTypes::WHERE]);
         lexes_to("FROM", vec![TokenTypes::FROM]);
+        lexes_to("SET", vec![TokenTypes::SET]);
         lexes_to("select", vec![TokenTypes::SELECT]);
         lexes_to("update", vec![TokenTypes::UPDATE]);
         lexes_to("insert", vec![TokenTypes::INSERT]);
@@ -100,6 +101,9 @@ mod tests {
         lexes_to("fRoM", vec![TokenTypes::FROM]);
 
         lexes_to(",", vec![TokenTypes::COMMA]);
+        lexes_to(".", vec![TokenTypes::DOT]);
+        lexes_to("(", vec![TokenTypes::LPARENS]);
+        lexes_to(")", vec![TokenTypes::RPARENS]);
 
         lexes_to("=", vec![TokenTypes::EQ]);
         lexes_to("<", vec![TokenTypes::LT]);
@@ -108,10 +112,47 @@ mod tests {
         lexes_to("<=", vec![TokenTypes::LTE]);
 
         lexes_to(";", vec![TokenTypes::TERMINATE]);
+
+        lexes_to(
+            "a.bar",
+            vec![
+                TokenTypes::IDENTIFIER(String::from("a")),
+                TokenTypes::DOT,
+                TokenTypes::IDENTIFIER(String::from("bar")),
+            ],
+        );
     }
 
     #[test]
     fn test_lexer_corner_cases() {
+        lexes_to(
+            "a()",
+            vec![
+                TokenTypes::IDENTIFIER(String::from("a")),
+                TokenTypes::LPARENS,
+                TokenTypes::RPARENS,
+            ],
+        );
+        lexes_to(
+            "a(b)",
+            vec![
+                TokenTypes::IDENTIFIER(String::from("a")),
+                TokenTypes::LPARENS,
+                TokenTypes::IDENTIFIER(String::from("b")),
+                TokenTypes::RPARENS,
+            ],
+        );
+        lexes_to(
+            "a(b, c)",
+            vec![
+                TokenTypes::IDENTIFIER(String::from("a")),
+                TokenTypes::LPARENS,
+                TokenTypes::IDENTIFIER(String::from("b")),
+                TokenTypes::COMMA,
+                TokenTypes::IDENTIFIER(String::from("c")),
+                TokenTypes::RPARENS,
+            ],
+        );
         lexes_to(
             "a=b",
             vec![
@@ -188,13 +229,33 @@ mod tests {
                 TokenTypes::TERMINATE,
             ],
         );
+        lexes_to(
+            "update a set b = NOW();",
+            vec![
+                TokenTypes::UPDATE,
+                TokenTypes::IDENTIFIER(String::from("a")),
+                TokenTypes::SET,
+                TokenTypes::IDENTIFIER(String::from("b")),
+                TokenTypes::EQ,
+                TokenTypes::IDENTIFIER(String::from("now")),
+                TokenTypes::LPARENS,
+                TokenTypes::RPARENS,
+                TokenTypes::TERMINATE,
+            ],
+        );
     }
 
     fn lexes_to(input: &str, expected_tokens: Vec<TokenTypes>) {
         let mut lexer = SqlLexer::new(input).unwrap();
         for (index, expected_token) in expected_tokens.iter().enumerate() {
+            let next = lexer.next();
+            assert!(
+                next.is_some(),
+                "Expecting {:?} but lexer is finished",
+                expected_token
+            );
             assert_eq!(
-                lexer.next().unwrap().token_type,
+                next.unwrap().token_type,
                 *expected_token,
                 "`{}` did to lex to {:?} at token index {}",
                 input,
@@ -302,6 +363,9 @@ mod lexing_buffer {
                 || *character == ';'
                 || *character == '+'
                 || *character == ','
+                || *character == '.'
+                || *character == '('
+                || *character == ')'
                 || *character == '='
                 || *character == '<'
                 || *character == '>';
@@ -323,8 +387,12 @@ mod lexing_buffer {
                 "delete" => self.create_token_and_reset(TokenTypes::DELETE),
                 "where" => self.create_token_and_reset(TokenTypes::WHERE),
                 "from" => self.create_token_and_reset(TokenTypes::FROM),
+                "set" => self.create_token_and_reset(TokenTypes::SET),
                 // Separators
                 "," => self.create_token_and_reset(TokenTypes::COMMA),
+                "." => self.create_token_and_reset(TokenTypes::DOT),
+                "(" => self.create_token_and_reset(TokenTypes::LPARENS),
+                ")" => self.create_token_and_reset(TokenTypes::RPARENS),
                 // Operators
                 "=" => self.create_token_and_reset(TokenTypes::EQ),
                 "<" => self.create_token_and_reset(TokenTypes::LT),
