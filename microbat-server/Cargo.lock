@@ -3,9 +3,5 @@
 version = 3
 
 [[package]]
-name = "microbat-client"
-version = "0.1.0"
-
-[[package]]
-name = "microbat-server"
+name = "microbat"
 version = "0.1.0"
