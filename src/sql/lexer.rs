@@ -7,8 +7,8 @@ use std::str::Chars;
 /// SourceRef describes a location in parsed input.
 #[derive(Debug)]
 pub struct SourceRef {
-    column: u32,
-    line: u32,
+    pub column: u32,
+    pub line: u32,
 }
 
 impl Display for SourceRef {
@@ -21,7 +21,7 @@ impl Display for SourceRef {
 #[derive(Debug)]
 pub struct LexingError {
     msg: LexingErrors,
-    location: SourceRef,
+    pub location: SourceRef,
 }
 
 impl Display for LexingError {
@@ -34,12 +34,16 @@ impl Display for LexingError {
 #[derive(Debug, PartialEq)]
 enum LexingErrors {
     StringNotTerminated,
+    IllegalCharacter(char),
 }
 
 impl Display for LexingErrors {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             LexingErrors::StringNotTerminated => write!(f, "String was not terminated"),
+            LexingErrors::IllegalCharacter(char) => {
+                write!(f, "Encountered illegal character {}", char)
+            }
         }
     }
 }
@@ -48,13 +52,13 @@ impl Display for LexingErrors {
 ///
 /// Bear in mind that every single character is lower cased. Every identifier
 /// becomes lower case internally FOO => foo and so on.
-pub struct SqlLexer<I: Iterator> {
+pub struct SqlLexer<'a> {
     buffer: LexBuffer,
-    source: Peekable<I>,
+    source: Peekable<Chars<'a>>,
 }
 
-impl SqlLexer<Chars<'_>> {
-    pub fn new(source: &str) -> SqlLexer<Chars> {
+impl SqlLexer<'_> {
+    pub fn new(source: &str) -> SqlLexer {
         SqlLexer {
             source: source.chars().peekable(),
             buffer: LexBuffer::new(),
@@ -113,6 +117,7 @@ mod tests {
         lexes_to("<=", vec![TokenTypes::LTE]);
 
         lexes_to("'hello'", vec![TokenTypes::STRING(String::from("hello"))]);
+        lexes_to("'🤔'", vec![TokenTypes::STRING(String::from("🤔"))]);
 
         lexes_to(";", vec![TokenTypes::TERMINATE]);
 
@@ -216,6 +221,15 @@ mod tests {
             "'hello world\twith tab'",
             vec![TokenTypes::STRING(String::from("hello world\twith tab"))],
         );
+    }
+
+    #[test]
+    fn test_emoji_identifier() {
+        let mut lexer = SqlLexer::new("🤔");
+        let result = lexer.next();
+        assert!(result.is_err(), "Was: {:?}", result);
+        let err = result.unwrap_err();
+        assert_eq!(err.msg, LexingErrors::IllegalCharacter('🤔'));
     }
 
     #[test]
@@ -325,8 +339,8 @@ mod lexing_buffer {
     enum LexingState {
         Normal,
         ForcePop,
-        Integer,
-        Float,
+        // Integer,
+        // Float,
         String,
     }
 
@@ -389,6 +403,15 @@ mod lexing_buffer {
             if self.mode == LexingState::String {
                 self.buffer.push(current_char);
             } else {
+                if !current_char.is_ascii() {
+                    return Err(LexingError {
+                        msg: LexingErrors::IllegalCharacter(current_char),
+                        location: SourceRef {
+                            line: self.current_line,
+                            column: self.current_column,
+                        },
+                    });
+                }
                 self.buffer.push(current_char.to_ascii_lowercase());
             }
 
