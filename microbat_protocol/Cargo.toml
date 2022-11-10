@@ -1,5 +1,5 @@
 [package]
-name = "microbat-server"
+name = "microbat_protocol"
 version = "0.1.0"
 edition = "2021"
 

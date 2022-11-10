@@ -1,2 +1,2 @@
 [workspace]
-members = ["microbat-server", "microbat-client"]
+members = ["microbat_server", "microbat_client", "microbat_protocol"]

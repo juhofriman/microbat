@@ -20,7 +20,7 @@ impl Display for SourceRef {
 /// General lexing error occurred during the lexing phase
 #[derive(Debug)]
 pub struct LexingError {
-    msg: LexingErrors,
+    pub msg: LexingErrors,
     pub location: SourceRef,
 }
 
@@ -32,7 +32,7 @@ impl Display for LexingError {
 
 /// All possible lexing errors
 #[derive(Debug, PartialEq)]
-enum LexingErrors {
+pub enum LexingErrors {
     StringNotTerminated,
     IllegalCharacter(char),
 }
