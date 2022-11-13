@@ -49,6 +49,14 @@ impl MicroBatTcpClient {
                 println!("ERROR: {}", msg);
                 Ok(())
             }
+            MicrobatMessages::RowDescription(rows) => {
+                print!("|");
+                for row in &rows.rows {
+                    print!(" {} |", row.name);
+                }
+                println!();
+                Ok(())
+            }
             _ => {
                 panic!("Received unknown message");
             }

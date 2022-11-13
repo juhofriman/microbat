@@ -19,6 +19,22 @@ const MSG_TYPE_HANDSHAKE: u8 = b'a';
 const MSG_TYPE_QUERY: u8 = b'q';
 const MSG_TYPE_ERROR: u8 = b'e';
 const MSG_TYPE_DISCONNECT: u8 = b'd';
+const MSG_TYPE_ROW_DESCRIPTION: u8 = b'r';
+
+pub enum Data {
+    Integer(u32),
+    Varchar(String),
+}
+
+#[derive(PartialEq, Debug)]
+pub struct Column {
+    pub name: String,
+}
+
+#[derive(PartialEq, Debug)]
+pub struct RowDescription {
+    pub rows: Vec<Column>,
+}
 
 #[derive(PartialEq, Debug)]
 pub enum MicrobatMessages {
@@ -26,6 +42,7 @@ pub enum MicrobatMessages {
     Query(String),
     Disconnect,
     Error(String),
+    RowDescription(RowDescription),
 }
 
 impl MicrobatMessages {
@@ -58,6 +75,17 @@ impl MicrobatMessages {
                 stream.write(&[MSG_TYPE_ERROR])?;
                 stream.write(&[payload.len() as u8])?;
                 stream.write(payload.as_bytes())?;
+                Ok(1)
+            }
+            MicrobatMessages::RowDescription(rows) => {
+                let mut colum_bytes: Vec<u8> = vec![];
+                for row in &rows.rows {
+                    colum_bytes.push(row.name.len() as u8);
+                    colum_bytes.append(&mut row.name.as_bytes().to_vec())
+                }
+                stream.write(&[MSG_TYPE_ROW_DESCRIPTION])?;
+                stream.write(&[colum_bytes.len() as u8])?;
+                stream.write(&colum_bytes)?;
                 Ok(1)
             }
         };
@@ -95,6 +123,23 @@ pub fn read_message(stream: &mut (impl Read + Write + Unpin)) -> MicrobatMessage
             let mut message_buffer = vec![0; length[0] as usize];
             stream.read_exact(&mut message_buffer).unwrap();
             MicrobatMessages::Disconnect
+        }
+        MSG_TYPE_ROW_DESCRIPTION => {
+            let mut length = [b'\0'];
+            stream.read(&mut length).unwrap();
+            let mut full_length = length[0] as usize;
+            let mut rows = RowDescription { rows: vec![] };
+            while full_length > 0 {
+                let mut length = [b'\0'];
+                stream.read(&mut length).unwrap();
+                let mut message_buffer = vec![0; length[0] as usize];
+                stream.read_exact(&mut message_buffer).unwrap();
+                rows.rows.push(Column {
+                    name: String::from_utf8(message_buffer.clone()).unwrap(),
+                });
+                full_length = full_length - (length[0] as usize) - 1;
+            }
+            MicrobatMessages::RowDescription(rows)
         }
         m => {
             panic!("Unknown message {}", m);

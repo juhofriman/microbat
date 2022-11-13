@@ -1,5 +1,5 @@
 use crate::SqlLexer;
-use microbat_protocol::{read_message, MicrobatMessages};
+use microbat_protocol::{read_message, Column, Data, MicrobatMessages, RowDescription};
 use std::{
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
@@ -45,10 +45,31 @@ fn handle_connection(mut stream: TcpStream) {
                         }
                     }
                 }
-                MicrobatMessages::ClientHandshake.send(&mut stream).unwrap();
+                let rows = RowDescription {
+                    rows: vec![
+                        Column {
+                            name: String::from("foo"),
+                        },
+                        Column {
+                            name: String::from("bar"),
+                        },
+                        Column {
+                            name: String::from("baz"),
+                        },
+                        Column {
+                            name: String::from("boz"),
+                        },
+                    ],
+                };
+                MicrobatMessages::RowDescription(rows)
+                    .send(&mut stream)
+                    .unwrap();
             }
             MicrobatMessages::Error(msg) => {
                 println!("Weird... Client sent ERROR: {}", msg);
+            }
+            MicrobatMessages::RowDescription(_) => {
+                println!("Weird... Client sent RowDesscription");
             }
             MicrobatMessages::Disconnect => {
                 println!("Disconnecting");
