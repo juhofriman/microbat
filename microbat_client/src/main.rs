@@ -1,4 +1,4 @@
-use microbat_protocol::{query_message, startup_message, MSG_TYPE_ERROR, MSG_TYPE_STARTUP};
+use microbat_protocol::{read_message, MicrobatMessages, MicrobatProtocolError};
 use rustyline::error::ReadlineError;
 use rustyline::{Editor, Result};
 use std::env;
@@ -6,17 +6,81 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::str;
 
-fn main() -> Result<()> {
-    // `()` can be used when no completer is required
-    let mut rl = Editor::<()>::new()?;
+struct MicroBatTcpClient {
+    stream: TcpStream,
+}
+
+#[derive(Debug)]
+struct MicroBatClientError {
+    msg: String,
+}
+
+impl From<MicrobatProtocolError> for MicroBatClientError {
+    fn from(error: MicrobatProtocolError) -> Self {
+        MicroBatClientError { msg: error.msg }
+    }
+}
+
+impl MicroBatTcpClient {
+    fn handshake(&mut self) -> std::result::Result<(), MicroBatClientError> {
+        MicrobatMessages::ClientHandshake.send(&mut self.stream)?;
+        match read_message(&mut self.stream) {
+            MicrobatMessages::ClientHandshake => {
+                println!("Received server handshake");
+                Ok(())
+            }
+            _ => {
+                panic!("Received unknown message");
+            }
+        }
+    }
+    fn disconnect(&mut self) -> std::result::Result<(), MicroBatClientError> {
+        MicrobatMessages::Disconnect.send(&mut self.stream)?;
+        Ok(())
+    }
+    fn query(&mut self, sql: String) -> std::result::Result<(), MicroBatClientError> {
+        MicrobatMessages::Query(sql).send(&mut self.stream)?;
+        match read_message(&mut self.stream) {
+            MicrobatMessages::ClientHandshake => {
+                println!("Received server handshake");
+                Ok(())
+            }
+            MicrobatMessages::Error(msg) => {
+                println!("ERROR: {}", msg);
+                Ok(())
+            }
+            _ => {
+                panic!("Received unknown message");
+            }
+        }
+    }
+}
+
+fn main() {
+    let connect_string = String::from("localhost:7878");
+    let stream = TcpStream::connect(&connect_string).expect("Failed to connect to microbat");
+    let mut client = MicroBatTcpClient { stream };
+    match client.handshake() {
+        Ok(_) => {
+            println!("Connected to {}", connect_string);
+            println!();
+        }
+        Err(err) => {
+            println!("Error {:?}", err);
+        }
+    }
+
+    let mut rl = Editor::<()>::new().unwrap();
     loop {
         let readline = rl.readline("microbat> ");
         match readline {
             Ok(line) => {
-                send_with_new_connection(line);
+                client.query(line).unwrap();
             }
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");
+                client.disconnect().unwrap();
+                println!("Disconnected");
                 break;
             }
             Err(ReadlineError::Eof) => {
@@ -29,50 +93,9 @@ fn main() -> Result<()> {
             }
         }
     }
-    rl.save_history("history.txt")
-}
-
-fn send_with_new_connection(query: String) {
-    match TcpStream::connect("localhost:7878") {
-        Ok(mut stream) => {
-            stream.write(&query_message(query)[..]).unwrap();
-
-            let mut message_type = [b'x'];
-
-            stream.read(&mut message_type).unwrap();
-
-            match message_type[0] {
-                MSG_TYPE_STARTUP => {
-                    let mut length = [b'x'];
-                    stream.read(&mut length).unwrap();
-                    let mut byte_buffer = vec![0; length[0] as usize];
-                    stream.read_exact(&mut byte_buffer).unwrap();
-                    println!("RECEIVED: {}", str::from_utf8(&byte_buffer).unwrap());
-                }
-                MSG_TYPE_ERROR => {
-                    let mut length = [b'x'];
-                    stream.read(&mut length).unwrap();
-                    let mut byte_buffer = vec![0; length[0] as usize];
-                    stream.read_exact(&mut byte_buffer).unwrap();
-                    println!("ERROR: {}", str::from_utf8(&byte_buffer).unwrap());
-                }
-                _ => {
-                    println!("Unknown message type {:?}", message_type);
-                }
-            }
-        }
-        Err(e) => {
-            println!("Failed to connect: {}", e);
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_test() {
-        assert!(true)
-    }
 }

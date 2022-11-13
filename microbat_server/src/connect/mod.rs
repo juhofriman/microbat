@@ -1,9 +1,9 @@
 use crate::SqlLexer;
-use microbat_protocol::{error_message, startup_response, MSG_TYPE_QUERY, MSG_TYPE_STARTUP};
+use microbat_protocol::{read_message, MicrobatMessages};
 use std::{
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
-    str,
+    str, thread,
 };
 
 pub fn run() {
@@ -11,58 +11,49 @@ pub fn run() {
     println!("MICROBAT EXTRAVAGANZA \"DB\" BOUND ON 7878");
     for stream in listener.incoming() {
         let stream = stream.unwrap();
-        handle_connection(stream);
+        thread::spawn(|| {
+            handle_connection(stream);
+        });
     }
 }
 
 fn handle_connection(mut stream: TcpStream) {
-    let mut message_type = [b'x'];
-
-    stream.read(&mut message_type).unwrap();
-
-    match message_type[0] {
-        MSG_TYPE_STARTUP => {
-            let mut length = [b'x'];
-            stream.read(&mut length).unwrap();
-            let mut byte_buffer = vec![0; length[0] as usize];
-            stream.read_exact(&mut byte_buffer).unwrap();
-            println!("RECEIVED: {}", str::from_utf8(&byte_buffer).unwrap());
-
-            stream.write(&startup_response()).unwrap();
-        }
-        MSG_TYPE_QUERY => {
-            let mut length = [b'x'];
-            stream.read(&mut length).unwrap();
-            let mut byte_buffer = vec![0; length[0] as usize];
-            stream.read_exact(&mut byte_buffer).unwrap();
-            let query = str::from_utf8(&byte_buffer).unwrap();
-            println!("Received query: {}", query);
-            println!("Lexing...");
-            let mut lexer = SqlLexer::new(query);
-            loop {
-                match lexer.next() {
-                    Ok(token_option) => match token_option {
-                        Some(token) => println!("\t{}", token),
-                        None => {
-                            stream.write(&startup_response()).unwrap();
+    loop {
+        match read_message(&mut stream) {
+            MicrobatMessages::ClientHandshake => {
+                println!("Received client handshake");
+                MicrobatMessages::ClientHandshake.send(&mut stream).unwrap();
+            }
+            MicrobatMessages::Query(query) => {
+                println!("Executing: {}", query);
+                let mut lexer = SqlLexer::new(&query);
+                loop {
+                    match lexer.next() {
+                        Ok(token_option) => match token_option {
+                            Some(token) => println!("{}", token),
+                            None => break,
+                        },
+                        Err(err) => {
+                            println!();
+                            println!("{}", err);
+                            println!("{}", query);
+                            println!("{}^", "-".repeat(err.location.column as usize - 1));
+                            MicrobatMessages::Error(format!("{}", err))
+                                .send(&mut stream)
+                                .unwrap();
                             break;
                         }
-                    },
-                    Err(err) => {
-                        println!();
-                        println!("ERROR WHILE LEXING");
-                        println!("{}", err);
-                        println!("{}", query);
-                        println!("Sending error to client...");
-                        stream.write(&error_message(format!("{}", err))).unwrap();
-                        break;
                     }
                 }
+                MicrobatMessages::ClientHandshake.send(&mut stream).unwrap();
             }
-            stream.write(&startup_response()).unwrap();
-        }
-        _ => {
-            println!("Unknown message type {:?}", message_type);
+            MicrobatMessages::Error(msg) => {
+                println!("Weird... Client sent ERROR: {}", msg);
+            }
+            MicrobatMessages::Disconnect => {
+                println!("Disconnecting");
+                break;
+            }
         }
     }
 }
