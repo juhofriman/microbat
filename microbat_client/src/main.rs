@@ -1,4 +1,4 @@
-use microbat_protocol::{read_message, MicrobatMessages, MicrobatProtocolError};
+use microbat_protocol::{read_message, Column, Data, MicrobatMessages, MicrobatProtocolError};
 use rustyline::error::ReadlineError;
 use rustyline::{Editor, Result};
 use std::env;
@@ -21,6 +21,74 @@ impl From<MicrobatProtocolError> for MicroBatClientError {
     }
 }
 
+struct QueryResult {
+    columns: Vec<Column>,
+    rows: Vec<Vec<Data>>,
+}
+
+impl QueryResult {
+    fn paddings(&self) -> Vec<usize> {
+        let mut paddings: Vec<usize> = vec![];
+
+        let mut longest = 0;
+        for (index, column) in self.columns.iter().enumerate() {
+            longest = column.name.len();
+            for data in &self.rows {
+                match &data[index] {
+                    Data::Varchar(d) => {
+                        if d.len() > longest {
+                            longest = d.len();
+                        }
+                    }
+                    _ => (),
+                }
+            }
+            paddings.push(longest + 1);
+        }
+
+        paddings
+    }
+
+    fn render(&self) {
+        let paddings = self.paddings();
+        for (index, column) in self.columns.iter().enumerate() {
+            print!("--{}", "-".repeat(paddings[index]));
+        }
+        println!("-");
+        for (index, column) in self.columns.iter().enumerate() {
+            print!("| {}", column.name);
+            let padding = paddings[index] - column.name.len();
+            if padding > 0 {
+                print!("{}", " ".repeat(padding));
+            }
+        }
+        println!("|");
+        for (index, column) in self.columns.iter().enumerate() {
+            print!("--{}", "-".repeat(paddings[index]));
+        }
+        println!("-");
+        for (index, row) in self.rows.iter().enumerate() {
+            for (index, column) in row.iter().enumerate() {
+                match column {
+                    Data::Varchar(data) => {
+                        print!("| {}", data);
+                        let padding = paddings[index] - data.len();
+                        if padding > 0 {
+                            print!("{}", " ".repeat(padding));
+                        }
+                    }
+                    _ => (),
+                }
+            }
+            println!("|");
+        }
+        for (index, column) in self.columns.iter().enumerate() {
+            print!("--{}", "-".repeat(paddings[index]));
+        }
+        println!("-");
+    }
+}
+
 impl MicroBatTcpClient {
     fn handshake(&mut self) -> std::result::Result<(), MicroBatClientError> {
         MicrobatMessages::ClientHandshake.send(&mut self.stream)?;
@@ -38,24 +106,26 @@ impl MicroBatTcpClient {
         MicrobatMessages::Disconnect.send(&mut self.stream)?;
         Ok(())
     }
-    fn query(&mut self, sql: String) -> std::result::Result<(), MicroBatClientError> {
+    fn query(&mut self, sql: String) -> std::result::Result<QueryResult, MicroBatClientError> {
         MicrobatMessages::Query(sql).send(&mut self.stream)?;
         match read_message(&mut self.stream) {
-            MicrobatMessages::ClientHandshake => {
-                println!("Received server handshake");
-                Ok(())
-            }
-            MicrobatMessages::Error(msg) => {
-                println!("ERROR: {}", msg);
-                Ok(())
-            }
+            MicrobatMessages::Error(msg) => Err(MicroBatClientError { msg }),
             MicrobatMessages::RowDescription(rows) => {
-                print!("|");
-                for row in &rows.rows {
-                    print!(" {} |", row.name);
+                let mut result = QueryResult {
+                    columns: rows.rows,
+                    rows: vec![],
+                };
+                loop {
+                    match read_message(&mut self.stream) {
+                        MicrobatMessages::DataRow(row) => {
+                            result.rows.push(row.columns);
+                        }
+                        _ => {
+                            break;
+                        }
+                    }
                 }
-                println!();
-                Ok(())
+                Ok(result)
             }
             _ => {
                 panic!("Received unknown message");
@@ -82,9 +152,14 @@ fn main() {
     loop {
         let readline = rl.readline("microbat> ");
         match readline {
-            Ok(line) => {
-                client.query(line).unwrap();
-            }
+            Ok(line) => match client.query(line) {
+                Ok(result) => {
+                    result.render();
+                }
+                Err(err) => {
+                    println!("{}", err.msg);
+                }
+            },
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");
                 client.disconnect().unwrap();

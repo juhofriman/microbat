@@ -1,5 +1,5 @@
 use crate::SqlLexer;
-use microbat_protocol::{read_message, Column, Data, MicrobatMessages, RowDescription};
+use microbat_protocol::{read_message, Column, Data, DataRow, MicrobatMessages, RowDescription};
 use std::{
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
@@ -37,7 +37,7 @@ fn handle_connection(mut stream: TcpStream) {
                             println!();
                             println!("{}", err);
                             println!("{}", query);
-                            println!("{}^", "-".repeat(err.location.column as usize - 1));
+                            println!("{}", "-".repeat(err.location.column as usize - 1));
                             MicrobatMessages::Error(format!("{}", err))
                                 .send(&mut stream)
                                 .unwrap();
@@ -56,20 +56,62 @@ fn handle_connection(mut stream: TcpStream) {
                         Column {
                             name: String::from("baz"),
                         },
-                        Column {
-                            name: String::from("boz"),
-                        },
                     ],
                 };
                 MicrobatMessages::RowDescription(rows)
                     .send(&mut stream)
                     .unwrap();
+
+                MicrobatMessages::DataRow(DataRow {
+                    columns: vec![
+                        Data::Varchar(String::from("hello")),
+                        Data::Varchar(String::from("world!")),
+                        Data::Varchar(String::from("This")),
+                    ],
+                })
+                .send(&mut stream)
+                .unwrap();
+
+                MicrobatMessages::DataRow(DataRow {
+                    columns: vec![
+                        Data::Varchar(String::from("is")),
+                        Data::Varchar(String::from("microbat \"DB\".")),
+                        Data::Varchar(String::from("Well..")),
+                    ],
+                })
+                .send(&mut stream)
+                .unwrap();
+
+                MicrobatMessages::DataRow(DataRow {
+                    columns: vec![
+                        Data::Varchar(String::from("...kinda.")),
+                        Data::Varchar(String::from("It just")),
+                        Data::Varchar(String::from("serialized varchars over wire.")),
+                    ],
+                })
+                .send(&mut stream)
+                .unwrap();
+
+                MicrobatMessages::DataRow(DataRow {
+                    columns: vec![
+                        Data::Varchar(String::from("And was able to render")),
+                        Data::Varchar(String::from("this")),
+                        Data::Varchar(String::from("awesome resultset!")),
+                    ],
+                })
+                .send(&mut stream)
+                .unwrap();
+
+                MicrobatMessages::ClientHandshake.send(&mut stream).unwrap();
             }
             MicrobatMessages::Error(msg) => {
                 println!("Weird... Client sent ERROR: {}", msg);
             }
             MicrobatMessages::RowDescription(_) => {
                 println!("Weird... Client sent RowDesscription");
+            }
+            MicrobatMessages::DataRow(_) => {
+                println!("Weird... Client sent DataRow...");
             }
             MicrobatMessages::Disconnect => {
                 println!("Disconnecting");

@@ -20,20 +20,27 @@ const MSG_TYPE_QUERY: u8 = b'q';
 const MSG_TYPE_ERROR: u8 = b'e';
 const MSG_TYPE_DISCONNECT: u8 = b'd';
 const MSG_TYPE_ROW_DESCRIPTION: u8 = b'r';
+const MSG_TYPE_DATA: u8 = b'l';
 
+#[derive(PartialEq, Debug)]
+pub struct DataRow {
+    pub columns: Vec<Data>,
+}
+
+#[derive(PartialEq, Debug)]
 pub enum Data {
     Integer(u32),
     Varchar(String),
 }
 
 #[derive(PartialEq, Debug)]
-pub struct Column {
-    pub name: String,
+pub struct RowDescription {
+    pub rows: Vec<Column>,
 }
 
 #[derive(PartialEq, Debug)]
-pub struct RowDescription {
-    pub rows: Vec<Column>,
+pub struct Column {
+    pub name: String,
 }
 
 #[derive(PartialEq, Debug)]
@@ -43,6 +50,7 @@ pub enum MicrobatMessages {
     Disconnect,
     Error(String),
     RowDescription(RowDescription),
+    DataRow(DataRow),
 }
 
 impl MicrobatMessages {
@@ -84,6 +92,24 @@ impl MicrobatMessages {
                     colum_bytes.append(&mut row.name.as_bytes().to_vec())
                 }
                 stream.write(&[MSG_TYPE_ROW_DESCRIPTION])?;
+                stream.write(&[colum_bytes.len() as u8])?;
+                stream.write(&colum_bytes)?;
+                Ok(1)
+            }
+            MicrobatMessages::DataRow(row) => {
+                let mut colum_bytes: Vec<u8> = vec![];
+                for column in &row.columns {
+                    match column {
+                        Data::Varchar(data) => {
+                            colum_bytes.push(data.len() as u8);
+                            colum_bytes.append(&mut data.as_bytes().to_vec())
+                        }
+                        _ => {
+                            panic!("Not yet!")
+                        }
+                    }
+                }
+                stream.write(&[MSG_TYPE_DATA])?;
                 stream.write(&[colum_bytes.len() as u8])?;
                 stream.write(&colum_bytes)?;
                 Ok(1)
@@ -140,6 +166,23 @@ pub fn read_message(stream: &mut (impl Read + Write + Unpin)) -> MicrobatMessage
                 full_length = full_length - (length[0] as usize) - 1;
             }
             MicrobatMessages::RowDescription(rows)
+        }
+        MSG_TYPE_DATA => {
+            let mut length = [b'\0'];
+            stream.read(&mut length).unwrap();
+            let mut full_length = length[0] as usize;
+            let mut data = DataRow { columns: vec![] };
+            while full_length > 0 {
+                let mut length = [b'\0'];
+                stream.read(&mut length).unwrap();
+                let mut message_buffer = vec![0; length[0] as usize];
+                stream.read_exact(&mut message_buffer).unwrap();
+                data.columns.push(Data::Varchar(
+                    String::from_utf8(message_buffer.clone()).unwrap(),
+                ));
+                full_length = full_length - (length[0] as usize) - 1;
+            }
+            MicrobatMessages::DataRow(data)
         }
         m => {
             panic!("Unknown message {}", m);
