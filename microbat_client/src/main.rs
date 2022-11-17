@@ -1,4 +1,6 @@
-use microbat_protocol::{read_message, Column, Data, MicrobatMessages, MicrobatProtocolError};
+use microbat_protocol::client_messages::MicrobatClientMessage;
+use microbat_protocol::server_messages::{deserialize_server_message, MicrobatServerMessage};
+use microbat_protocol::{read_message, Column, Data, MicrobatMessage, MicrobatProtocolError};
 use rustyline::error::ReadlineError;
 use rustyline::{Editor, Result};
 use std::env;
@@ -91,9 +93,9 @@ impl QueryResult {
 
 impl MicroBatTcpClient {
     fn handshake(&mut self) -> std::result::Result<(), MicroBatClientError> {
-        MicrobatMessages::ClientHandshake.send(&mut self.stream)?;
-        match read_message(&mut self.stream) {
-            MicrobatMessages::ClientHandshake => {
+        MicrobatClientMessage::Handshake.send(&mut self.stream)?;
+        match read_message(&mut self.stream, deserialize_server_message)? {
+            MicrobatServerMessage::Handshake => {
                 println!("Received server handshake");
                 Ok(())
             }
@@ -103,21 +105,21 @@ impl MicroBatTcpClient {
         }
     }
     fn disconnect(&mut self) -> std::result::Result<(), MicroBatClientError> {
-        MicrobatMessages::Disconnect.send(&mut self.stream)?;
+        MicrobatClientMessage::Disconnect.send(&mut self.stream)?;
         Ok(())
     }
     fn query(&mut self, sql: String) -> std::result::Result<QueryResult, MicroBatClientError> {
-        MicrobatMessages::Query(sql).send(&mut self.stream)?;
-        match read_message(&mut self.stream) {
-            MicrobatMessages::Error(msg) => Err(MicroBatClientError { msg }),
-            MicrobatMessages::RowDescription(rows) => {
+        MicrobatClientMessage::Query(sql).send(&mut self.stream)?;
+        match read_message(&mut self.stream, deserialize_server_message)? {
+            MicrobatServerMessage::Error(msg) => Err(MicroBatClientError { msg }),
+            MicrobatServerMessage::RowDescription(rows) => {
                 let mut result = QueryResult {
                     columns: rows.rows,
                     rows: vec![],
                 };
                 loop {
-                    match read_message(&mut self.stream) {
-                        MicrobatMessages::DataRow(row) => {
+                    match read_message(&mut self.stream, deserialize_server_message)? {
+                        MicrobatServerMessage::DataRow(row) => {
                             result.rows.push(row.columns);
                         }
                         _ => {
@@ -128,7 +130,7 @@ impl MicroBatTcpClient {
                 Ok(result)
             }
             _ => {
-                panic!("Received unknown message");
+                panic!("Received unknown message here");
             }
         }
     }
