@@ -7,7 +7,7 @@ use microbat_protocol::{read_message, Column, Data, DataColumns, MicrobatMessage
 use std::{
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
-    str, thread,
+    str, thread, time,
 };
 
 pub fn run() {
@@ -48,6 +48,7 @@ fn handle_connection(mut stream: TcpStream) {
                             None => break,
                         }
                     }
+
                     let rows = RowDescription {
                         rows: vec![Column {
                             name: String::from("identifiers_for_query"),

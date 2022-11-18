@@ -7,10 +7,13 @@ use std::env;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::str;
+use std::time::{Duration, Instant};
 
 struct MicroBatTcpClient {
     stream: TcpStream,
 }
+
+struct QueryExecutionResult {}
 
 #[derive(Debug)]
 struct MicroBatClientError {
@@ -26,6 +29,7 @@ impl From<MicrobatProtocolError> for MicroBatClientError {
 struct QueryResult {
     columns: Vec<Column>,
     rows: Vec<Vec<Data>>,
+    time: Duration,
 }
 
 impl QueryResult {
@@ -109,19 +113,18 @@ impl MicroBatTcpClient {
         Ok(())
     }
     fn query(&mut self, sql: String) -> std::result::Result<QueryResult, MicroBatClientError> {
+        let start = Instant::now();
+
         MicrobatClientMessage::Query(sql).send(&mut self.stream)?;
 
         match read_message(&mut self.stream, deserialize_server_message)? {
             MicrobatServerMessage::Error(msg) => Err(MicroBatClientError { msg }),
             MicrobatServerMessage::RowDescription(rows) => {
-                let mut result = QueryResult {
-                    columns: rows.rows,
-                    rows: vec![],
-                };
+                let mut data_rows: Vec<Vec<Data>> = vec![];
                 loop {
                     match read_message(&mut self.stream, deserialize_server_message)? {
                         MicrobatServerMessage::DataRow(row) => {
-                            result.rows.push(row.columns);
+                            data_rows.push(row.columns);
                         }
                         MicrobatServerMessage::Ready => break,
                         unexpected => {
@@ -132,7 +135,11 @@ impl MicroBatTcpClient {
                         }
                     }
                 }
-                Ok(result)
+                Ok(QueryResult {
+                    columns: rows.rows,
+                    rows: data_rows,
+                    time: start.elapsed(),
+                })
             }
             unexpected => {
                 panic!("Received unexpected message {:?}", unexpected);
@@ -162,6 +169,9 @@ fn main() {
             Ok(line) => match client.query(line) {
                 Ok(result) => {
                     result.render();
+                    println!("({} rows)", result.rows.len());
+                    println!();
+                    println!("Query took {} ms.", result.time.as_millis());
                 }
                 Err(err) => {
                     println!("{}", err.msg);
