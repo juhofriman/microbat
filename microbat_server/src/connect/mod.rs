@@ -3,7 +3,7 @@ use crate::sql::tokens::{Token, TokenTypes};
 use crate::SqlLexer;
 use microbat_protocol::client_messages::{deserialize_client_message, MicrobatClientMessage};
 use microbat_protocol::server_messages::MicrobatServerMessage;
-use microbat_protocol::{read_message, Column, Data, DataColumns, MicrobatMessage, RowDescription};
+use microbat_protocol::{data_representation::*, read_message, MicrobatMessage};
 use std::{
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
@@ -59,7 +59,7 @@ fn handle_connection(mut stream: TcpStream) {
                         .unwrap();
 
                     for identifier in identifiers {
-                        MicrobatServerMessage::DataRow(DataColumns {
+                        MicrobatServerMessage::DataRow(DataRow {
                             columns: vec![identifier],
                         })
                         .send(&mut stream)

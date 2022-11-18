@@ -1,4 +1,7 @@
-use crate::{read_message_type, static_values as values, MicrobatMessage, MicrobatProtocolError};
+use crate::{
+    data_representation::*, read_message_type, static_values as values, MicrobatMessage,
+    MicrobatProtocolError,
+};
 use std::io::{Read, Write};
 
 #[derive(Debug, PartialEq)]

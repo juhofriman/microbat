@@ -1,6 +1,8 @@
 use microbat_protocol::client_messages::MicrobatClientMessage;
 use microbat_protocol::server_messages::{deserialize_server_message, MicrobatServerMessage};
-use microbat_protocol::{read_message, Column, Data, MicrobatMessage, MicrobatProtocolError};
+use microbat_protocol::{
+    data_representation::*, read_message, MicrobatMessage, MicrobatProtocolError,
+};
 use rustyline::error::ReadlineError;
 use rustyline::{Editor, Result};
 use std::env;

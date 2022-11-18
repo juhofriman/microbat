@@ -1,6 +1,6 @@
 use crate::{
-    read_message_type, static_values as values, Column, Data, DataColumns, MicrobatMessage,
-    MicrobatProtocolError, RowDescription,
+    data_representation::*, read_message_type, static_values as values, MicrobatMessage,
+    MicrobatProtocolError,
 };
 use std::io::{Read, Write};
 
@@ -9,7 +9,7 @@ pub enum MicrobatServerMessage {
     Handshake,
     Error(String),
     RowDescription(RowDescription),
-    DataRow(DataColumns),
+    DataRow(DataRow),
     Ready,
 }
 
@@ -99,7 +99,7 @@ pub fn deserialize_server_message(
             Ok(MicrobatServerMessage::RowDescription(rows))
         }
         values::SERVER_MSG_TYPE_DATA_ROW => {
-            let mut rows = DataColumns { columns: vec![] };
+            let mut rows = DataRow { columns: vec![] };
             let mut pointer: usize = 0;
             while pointer < bytes.len() {
                 let column_length =

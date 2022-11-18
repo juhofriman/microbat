@@ -1,6 +1,7 @@
 extern crate core;
 
 pub mod client_messages;
+pub mod data_representation;
 pub mod server_messages;
 mod static_values;
 
@@ -63,41 +64,6 @@ pub trait MicrobatMessage {
         bytes.append(&mut payload.as_bytes().to_vec());
         bytes
     }
-}
-
-#[derive(PartialEq, Debug)]
-pub struct DataColumns {
-    pub columns: Vec<Data>,
-}
-
-#[derive(PartialEq, Debug)]
-pub enum Data {
-    Integer(u32),
-    Varchar(String),
-}
-
-impl Data {
-    fn bytes(&self) -> Vec<u8> {
-        match self {
-            Data::Varchar(value) => value.as_bytes().to_vec(),
-            Data::Integer(value) => value.to_be_bytes().to_vec(),
-        }
-    }
-    fn length_and_bytes(&self) -> Vec<u8> {
-        let mut bytes = self.bytes();
-        bytes.insert(0, bytes.len() as u8);
-        bytes
-    }
-}
-
-#[derive(PartialEq, Debug)]
-pub struct RowDescription {
-    pub rows: Vec<Column>,
-}
-
-#[derive(PartialEq, Debug)]
-pub struct Column {
-    pub name: String,
 }
 
 pub fn read_message<T>(
@@ -204,6 +170,7 @@ mod mocked_tcp_stream_tests {
 mod serialization_tests {
     use super::*;
     use crate::client_messages::{deserialize_client_message, MicrobatClientMessage};
+    use crate::data_representation::{Column, Data, DataRow, RowDescription};
     use crate::server_messages::{deserialize_server_message, MicrobatServerMessage};
     use crate::static_values as values;
 
@@ -276,7 +243,7 @@ mod serialization_tests {
         );
         assert_serialisation(
             "server row description",
-            MicrobatServerMessage::DataRow(DataColumns {
+            MicrobatServerMessage::DataRow(DataRow {
                 columns: vec![Data::Varchar(String::from("foo"))],
             })
             .as_bytes(),
@@ -357,14 +324,14 @@ mod serialization_tests {
 
     #[test]
     fn test_server_datarow_deserialisation() {
-        let data_row = DataColumns {
+        let data_row = DataRow {
             columns: vec![Data::Varchar(String::from("hello"))],
         };
         let message_bytes = MicrobatServerMessage::DataRow(data_row).as_bytes();
         let length = u32::from_le_bytes(message_bytes[1..5].try_into().unwrap()) as usize;
         let deserialized =
             deserialize_server_message(message_bytes[0], length, &message_bytes[5..]).unwrap();
-        let expected_data_row = DataColumns {
+        let expected_data_row = DataRow {
             columns: vec![Data::Varchar(String::from("hello"))],
         };
         assert_eq!(
