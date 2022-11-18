@@ -248,7 +248,7 @@ mod serialization_tests {
             })
             .as_bytes(),
             values::SERVER_MSG_TYPE_DATA_ROW,
-            7, // We just know this..
+            8, // We just know this..
             None,
         );
     }
@@ -323,7 +323,7 @@ mod serialization_tests {
     // TODO: cleanly assert all serialize->deserialize streams...
 
     #[test]
-    fn test_server_datarow_deserialisation() {
+    fn test_server_datarow_deserialization_varchar() {
         let data_row = DataRow {
             columns: vec![Data::Varchar(String::from("hello"))],
         };
@@ -333,6 +333,24 @@ mod serialization_tests {
             deserialize_server_message(message_bytes[0], length, &message_bytes[5..]).unwrap();
         let expected_data_row = DataRow {
             columns: vec![Data::Varchar(String::from("hello"))],
+        };
+        assert_eq!(
+            deserialized,
+            MicrobatServerMessage::DataRow(expected_data_row)
+        );
+    }
+
+    #[test]
+    fn test_server_datarow_deserialization_integer() {
+        let data_row = DataRow {
+            columns: vec![Data::Integer(83728)],
+        };
+        let message_bytes = MicrobatServerMessage::DataRow(data_row).as_bytes();
+        let length = u32::from_le_bytes(message_bytes[1..5].try_into().unwrap()) as usize;
+        let deserialized =
+            deserialize_server_message(message_bytes[0], length, &message_bytes[5..]).unwrap();
+        let expected_data_row = DataRow {
+            columns: vec![Data::Integer(83728)],
         };
         assert_eq!(
             deserialized,

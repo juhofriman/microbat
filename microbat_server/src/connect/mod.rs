@@ -50,9 +50,14 @@ fn handle_connection(mut stream: TcpStream) {
                     }
 
                     let rows = RowDescription {
-                        rows: vec![Column {
-                            name: String::from("identifiers_for_query"),
-                        }],
+                        rows: vec![
+                            Column {
+                                name: String::from("id"),
+                            },
+                            Column {
+                                name: String::from("identifiers_for_query"),
+                            },
+                        ],
                     };
                     MicrobatServerMessage::RowDescription(rows)
                         .send(&mut stream)
@@ -60,7 +65,10 @@ fn handle_connection(mut stream: TcpStream) {
 
                     for identifier in identifiers {
                         MicrobatServerMessage::DataRow(DataRow {
-                            columns: vec![identifier],
+                            columns: vec![
+                                Data::Integer(identifier.length_and_bytes().len() as u32),
+                                identifier,
+                            ],
                         })
                         .send(&mut stream)
                         .unwrap();

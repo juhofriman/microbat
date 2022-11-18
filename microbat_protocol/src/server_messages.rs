@@ -53,6 +53,7 @@ impl MicrobatMessage for MicrobatServerMessage {
                 let mut column_bytes: Vec<u8> = vec![];
                 for column in &data_row.columns {
                     let mut data_bytes = column.bytes();
+                    column_bytes.push(column.marker_byte());
                     column_bytes.append(&mut (data_bytes.len() as u32).to_le_bytes().to_vec());
                     column_bytes.append(&mut data_bytes);
                 }
@@ -102,12 +103,15 @@ pub fn deserialize_server_message(
             let mut rows = DataRow { columns: vec![] };
             let mut pointer: usize = 0;
             while pointer < bytes.len() {
+                let column_type = bytes[pointer];
                 let column_length =
-                    u32::from_le_bytes(bytes[pointer..pointer + 4].try_into().unwrap()) as usize;
-                let name =
-                    String::from_utf8(bytes[pointer + 4..(pointer + 4 + column_length)].to_vec())?;
-                rows.columns.push(Data::Varchar(name));
-                pointer += column_length + 4;
+                    u32::from_le_bytes(bytes[pointer + 1..pointer + 5].try_into().unwrap())
+                        as usize;
+                rows.columns.push(deserialize_data_column(
+                    column_type,
+                    &bytes[pointer + 5..(pointer + 5 + column_length)],
+                )?);
+                pointer += column_length + 5;
             }
             Ok(MicrobatServerMessage::DataRow(rows))
         }

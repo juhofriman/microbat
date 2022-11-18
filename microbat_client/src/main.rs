@@ -85,7 +85,13 @@ impl QueryResult {
                             print!("{}", " ".repeat(padding));
                         }
                     }
-                    _ => (),
+                    Data::Integer(data) => {
+                        print!("| {}", data);
+                        let padding = paddings[index] - data.to_string().len();
+                        if padding > 0 {
+                            print!("{}", " ".repeat(padding));
+                        }
+                    }
                 }
             }
             println!("|");
