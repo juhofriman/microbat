@@ -339,7 +339,7 @@ mod lexing_buffer {
     enum LexingState {
         Normal,
         ForcePop,
-        // Integer,
+        Integer,
         // Float,
         String,
     }

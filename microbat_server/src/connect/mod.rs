@@ -1,3 +1,5 @@
+use crate::sql::lexer;
+use crate::sql::tokens::{Token, TokenTypes};
 use crate::SqlLexer;
 use microbat_protocol::client_messages::{deserialize_client_message, MicrobatClientMessage};
 use microbat_protocol::server_messages::MicrobatServerMessage;
@@ -33,41 +35,37 @@ fn handle_connection(mut stream: TcpStream) {
                 }
                 MicrobatClientMessage::Query(query) => {
                     println!("Executing query: {}", query);
+                    let mut identifiers: Vec<Data> = vec![];
+                    let mut lexer = SqlLexer::new(&query);
+                    while let Ok(token) = lexer.next() {
+                        match token {
+                            Some(token) => match token.token_type {
+                                TokenTypes::IDENTIFIER(value) => {
+                                    identifiers.push(Data::Varchar(value));
+                                }
+                                _ => (),
+                            },
+                            None => break,
+                        }
+                    }
                     let rows = RowDescription {
-                        rows: vec![
-                            Column {
-                                name: String::from("foo"),
-                            },
-                            Column {
-                                name: String::from("bar"),
-                            },
-                            Column {
-                                name: String::from("baz"),
-                            },
-                        ],
+                        rows: vec![Column {
+                            name: String::from("identifiers_for_query"),
+                        }],
                     };
                     MicrobatServerMessage::RowDescription(rows)
                         .send(&mut stream)
                         .unwrap();
-                    MicrobatServerMessage::DataRow(DataColumns {
-                        columns: vec![
-                            Data::Varchar(String::from("This is")),
-                            Data::Varchar(String::from("streaming")),
-                            Data::Varchar(String::from("data")),
-                        ],
-                    })
-                    .send(&mut stream)
-                    .unwrap();
-                    MicrobatServerMessage::DataRow(DataColumns {
-                        columns: vec![
-                            Data::Varchar(String::from("in")),
-                            Data::Varchar(String::from("action.")),
-                            Data::Varchar(String::from("Cool!")),
-                        ],
-                    })
-                    .send(&mut stream)
-                    .unwrap();
-                    MicrobatServerMessage::Handshake.send(&mut stream).unwrap();
+
+                    for identifier in identifiers {
+                        MicrobatServerMessage::DataRow(DataColumns {
+                            columns: vec![identifier],
+                        })
+                        .send(&mut stream)
+                        .unwrap();
+                    }
+
+                    MicrobatServerMessage::Ready.send(&mut stream).unwrap();
                 }
             },
             Err(err) => {

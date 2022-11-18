@@ -42,6 +42,7 @@ pub enum TokenTypes {
     // Values
     IDENTIFIER(String),
     STRING(String),
+    INTEGER(u32),
 
     TERMINATE,
 }

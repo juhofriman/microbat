@@ -110,6 +110,7 @@ impl MicroBatTcpClient {
     }
     fn query(&mut self, sql: String) -> std::result::Result<QueryResult, MicroBatClientError> {
         MicrobatClientMessage::Query(sql).send(&mut self.stream)?;
+
         match read_message(&mut self.stream, deserialize_server_message)? {
             MicrobatServerMessage::Error(msg) => Err(MicroBatClientError { msg }),
             MicrobatServerMessage::RowDescription(rows) => {
@@ -122,15 +123,19 @@ impl MicroBatTcpClient {
                         MicrobatServerMessage::DataRow(row) => {
                             result.rows.push(row.columns);
                         }
-                        _ => {
-                            break;
+                        MicrobatServerMessage::Ready => break,
+                        unexpected => {
+                            panic!(
+                                "Received unexpected message while expecting data or Ready {:?}",
+                                unexpected
+                            );
                         }
                     }
                 }
                 Ok(result)
             }
-            _ => {
-                panic!("Received unknown message here");
+            unexpected => {
+                panic!("Received unexpected message {:?}", unexpected);
             }
         }
     }

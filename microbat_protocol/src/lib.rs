@@ -9,39 +9,7 @@ use std::net::TcpStream;
 use std::str;
 use std::string::FromUtf8Error;
 
-fn read_message_type(
-    stream: &mut (impl Read + Write + Unpin),
-) -> Result<u8, MicrobatProtocolError> {
-    let mut message_type = [b'\0'];
-    stream.read(&mut message_type)?;
-    Ok(message_type[0])
-}
-
-pub trait MicrobatMessage {
-    fn str_with_length(&self, payload: &str) -> Vec<u8> {
-        let mut bytes: Vec<u8> = vec![];
-        bytes.append(&mut (payload.len() as u32).to_le_bytes().to_vec());
-        bytes.append(&mut payload.as_bytes().to_vec());
-        bytes
-    }
-
-    fn as_bytes(&self) -> Vec<u8>;
-
-    fn send(
-        &self,
-        stream: &mut (impl Read + Write + Unpin),
-    ) -> Result<usize, MicrobatProtocolError> {
-        let bytes = self.as_bytes();
-        println!(
-            "Sending {} bytes, msgId: {}",
-            bytes.len(),
-            char::from(bytes[0])
-        );
-        stream.write(bytes.as_slice())?;
-        Ok(bytes.len())
-    }
-}
-
+/// Error for describing protocol errors.
 #[derive(Debug)]
 pub struct MicrobatProtocolError {
     pub msg: String,
@@ -60,6 +28,40 @@ impl From<FromUtf8Error> for MicrobatProtocolError {
         MicrobatProtocolError {
             msg: err.to_string(),
         }
+    }
+}
+
+/// Defines MicrobatMessage and offers utility methods for message deserialization and serialization.
+///
+/// Messages are separated in client_messages.rs and server_messages.rs and new message should be
+/// constructed using ClientMessage and ServerMessage enums which implement this trait.
+pub trait MicrobatMessage {
+    /// Sends this message to given stream, which presumably is a TcpStream
+    fn send(
+        &self,
+        stream: &mut (impl Read + Write + Unpin),
+    ) -> Result<usize, MicrobatProtocolError> {
+        let bytes = self.as_bytes();
+        println!(
+            ">> Sending {} bytes, msgId: {}",
+            bytes.len(),
+            char::from(bytes[0])
+        );
+        stream.write(bytes.as_slice())?;
+        Ok(bytes.len())
+    }
+
+    /// Implementations must define how given message is serialized as bytes. The implementation
+    /// must return the whole byte stream, i.e [MESSAGE_ID, LENGTH, BYTES_THE_LENGTH_DEFINES]
+    fn as_bytes(&self) -> Vec<u8>;
+
+    /// Utility method for serialising &str with length
+    /// Returns [LENGTH, STR_BYTES]
+    fn str_with_length(&self, payload: &str) -> Vec<u8> {
+        let mut bytes: Vec<u8> = vec![];
+        bytes.append(&mut (payload.len() as u32).to_le_bytes().to_vec());
+        bytes.append(&mut payload.as_bytes().to_vec());
+        bytes
     }
 }
 
@@ -109,14 +111,14 @@ pub fn read_message<T>(
             msg: String::from("unexpected hangup"),
         });
     }
-    let mut length_bytes = [b'\0', b'\0', b'\0', b'\0'];
-    stream.read_exact(&mut length_bytes)?;
-    let length = u32::from_le_bytes(length_bytes) as usize;
+
+    let length = read_message_length(stream)?;
+
     let mut message_buffer = vec![0; length];
     stream.read_exact(&mut message_buffer).unwrap();
 
     println!(
-        "Reading {} bytes, msgId: {}",
+        ">> Reading {} bytes, msgId: {}",
         message_buffer.len() + 1 + 4,
         char::from(message_type)
     );
@@ -124,8 +126,24 @@ pub fn read_message<T>(
     deserializer(message_type, length, message_buffer.as_slice())
 }
 
+fn read_message_type(
+    stream: &mut (impl Read + Write + Unpin),
+) -> Result<u8, MicrobatProtocolError> {
+    let mut message_type = [b'\0'];
+    stream.read(&mut message_type)?;
+    Ok(message_type[0])
+}
+
+fn read_message_length(
+    stream: &mut (impl Read + Write + Unpin),
+) -> Result<usize, MicrobatProtocolError> {
+    let mut length_bytes = [b'\0', b'\0', b'\0', b'\0'];
+    stream.read_exact(&mut length_bytes)?;
+    Ok(u32::from_le_bytes(length_bytes) as usize)
+}
+
 #[cfg(test)]
-mod tests {
+mod mocked_tcp_stream_tests {
     use super::*;
     use crate::client_messages::{deserialize_client_message, MicrobatClientMessage};
     use std::cmp::min;
@@ -271,7 +289,7 @@ mod serialization_tests {
     #[test]
     fn test_invalid_client_deserialization() {
         assert!(deserialize_client_message(b'\0', 0, &[]).is_err());
-        assert!(deserialize_client_message(b'x', 0, &[]).is_err());
+        assert!(deserialize_client_message(b'h', 0, &[]).is_err());
         assert!(deserialize_client_message(values::CLIENT_MSG_TYPE_HANDSHAKE, 0, &[b't']).is_err());
         assert!(deserialize_client_message(values::CLIENT_MSG_TYPE_HANDSHAKE, 5, &[b't']).is_err());
         assert!(deserialize_client_message(values::CLIENT_MSG_TYPE_QUERY, 2, &[0, 159]).is_err());
@@ -280,7 +298,7 @@ mod serialization_tests {
     #[test]
     fn test_invalid_server_deserialization() {
         assert!(deserialize_server_message(b'\0', 0, &[]).is_err());
-        assert!(deserialize_server_message(b'x', 0, &[]).is_err());
+        assert!(deserialize_server_message(b'h', 0, &[]).is_err());
         assert!(deserialize_server_message(values::SERVER_MSG_TYPE_HANDSHAKE, 0, &[b't']).is_err());
         assert!(deserialize_server_message(values::SERVER_MSG_TYPE_HANDSHAKE, 5, &[b't']).is_err());
         assert!(deserialize_server_message(values::SERVER_MSG_TYPE_ERROR, 2, &[0, 159]).is_err());

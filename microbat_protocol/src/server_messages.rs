@@ -81,6 +81,7 @@ pub fn deserialize_server_message(
     }
     match message_type {
         values::SERVER_MSG_TYPE_HANDSHAKE => Ok(MicrobatServerMessage::Handshake),
+        values::SERVER_MSG_TYPE_READY_FOR_QUERY => Ok(MicrobatServerMessage::Ready),
         values::SERVER_MSG_TYPE_ERROR => Ok(MicrobatServerMessage::Error(String::from_utf8(
             bytes.to_vec(),
         )?)),
