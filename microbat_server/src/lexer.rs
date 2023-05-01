@@ -68,6 +68,9 @@ impl Lexer {
     /// Panics if lexer is consumed, thus use has_next to check if there
     /// actually is a next token.
     pub fn next(&mut self) -> &Token {
+        if self.current_position + 1 > self.tokens.len() {
+            panic!("Lexer already consumed to the end");
+        }
         let token = &self.tokens[self.current_position];
         self.current_position += 1;
         token
@@ -424,6 +427,14 @@ mod tests {
         assert!(lexer.has_next());
         lexer.next();
         assert!(!lexer.has_next(), "Lexer says has_next when all consumed");
+    }
+
+    #[test]
+    #[should_panic(expected="Lexer already consumed to the end")]
+    fn test_lexer_next_panics() {
+        let mut lexer = Lexer::with_input(String::from("select")).expect("No");
+        lexer.next();
+        lexer.next();
     }
 
     fn assert_lexer_test(input: String, expected_tokens: Vec<Token>) {
