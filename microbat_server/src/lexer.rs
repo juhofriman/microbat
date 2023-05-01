@@ -1,3 +1,4 @@
+/// Tokens available for parser
 #[derive(Debug, PartialEq)]
 pub enum Token {
     CREATE,
@@ -26,16 +27,27 @@ pub enum Token {
     IDENTIFIER(String),
 }
 
+/// Stateful lexer instance for lexing a piece od SQL.
+///
+/// Note that the lexer will panic of next() is called on fully
+/// consumed lexer. Always check with has_next().
+///
+/// next() returns a reference and not owned Token and thus make hard copies
+/// of the data while parsing.
 #[derive(Debug)]
 pub struct Lexer {
-    position: usize,
+    current_position: usize,
     tokens: Vec<Token>,
 }
 
 impl Lexer {
+
+    /// Creates a new lexer instance with given input.
+    ///
+    /// Lexing happens eagerly and thus this returns a Result.
     pub fn with_input(sql: String) -> Result<Self, LexingError> {
         let mut tokens = vec![];
-        let mut buffer = LexerBuffer::new();
+        let mut buffer = buffer::LexerBuffer::new();
         let mut chars = sql.chars().peekable();
         while let Some(char) = chars.next() {
             if let Some(token) = buffer.push_char(char, chars.peek()) {
@@ -47,159 +59,27 @@ impl Lexer {
         }
         Ok(Lexer {
             tokens,
-            position: 0,
+            current_position: 0,
         })
     }
 
+    /// Returns a reference to the next token.
+    ///
+    /// Panics if lexer is consumed, thus use has_next to check if there
+    /// actually is a next token.
     pub fn next(&mut self) -> &Token {
-        let token = &self.tokens[self.position];
-        self.position += 1;
+        let token = &self.tokens[self.current_position];
+        self.current_position += 1;
         token
     }
 
+    /// Checks if lexer has more tokens
     pub fn has_next(&self) -> bool {
-        self.position < self.tokens.len()
+        self.current_position < self.tokens.len()
     }
 }
 
-#[derive(Debug, PartialEq)]
-enum LexingMode {
-    Normal,
-    String,
-    Integer,
-    Float,
-}
-
-struct LexerBuffer {
-    mode: LexingMode,
-    buffer: String,
-}
-
-impl LexerBuffer {
-    fn new() -> Self {
-        Self {
-            buffer: String::new(),
-            mode: LexingMode::Normal,
-        }
-    }
-
-    fn push_char(&mut self, char: char, peek: Option<&char>) -> Option<Result<Token, LexingError>> {
-        // Toggle integer mode if char is digit, current lexing mode is normal and buffer is empty
-        // This allows digits inside identifiers, but identifier can't start with a digit
-        if char.is_numeric() && self.mode == LexingMode::Normal && self.buffer.is_empty() {
-            self.mode = LexingMode::Integer;
-        }
-        if char == '.' && self.mode == LexingMode::Integer {
-            self.mode = LexingMode::Float;
-        }
-        if char == '\'' && self.mode != LexingMode::String {
-            self.mode = LexingMode::String;
-            return None;
-        }
-        match self.mode {
-            LexingMode::Normal => {
-                if char.is_whitespace() {
-                    return None;
-                }
-                self.buffer.push(char);
-                if self.is_delimiting(Some(&char)) {
-                    return Some(Ok(self.pop_token()));
-                }
-                match self.is_delimiting(peek) {
-                    true => Some(Ok(self.pop_token())),
-                    false => None,
-                }
-            }
-            LexingMode::Integer => {
-                if !char.is_numeric() {
-                    println!("Not {}", char);
-                    return Some(Err(LexingError::new(LexingErrorKind::NotInteger)));
-                }
-                self.buffer.push(char);
-                match self.is_delimiting(peek) {
-                    true => Some(Ok(self.pop_token())),
-                    false => None,
-                }
-            }
-            LexingMode::Float => {
-                if !char.is_numeric() && char != '.' {
-                    return Some(Err(LexingError::new(LexingErrorKind::NotInteger)));
-                }
-                self.buffer.push(char);
-                match self.is_delimiting(peek) {
-                    true => Some(Ok(self.pop_token())),
-                    false => None,
-                }
-            }
-            LexingMode::String => {
-                // The string ends here
-                if char == '\'' {
-                    return Some(Ok(self.pop_token()));
-                }
-                // Reached the end of input and string is not terminated
-                if peek.is_none() {
-                    return Some(Err(LexingError::new(LexingErrorKind::StringNotTerminated)));
-                }
-                self.buffer.push(char);
-                None
-            }
-        }
-    }
-
-    fn is_delimiting(&self, char: Option<&char>) -> bool {
-        if let Some(c) = char {
-            if c.is_whitespace() {
-                return true;
-            }
-            return match c {
-                ',' => true,
-                '(' => true,
-                ')' => true,
-                '+' => true,
-                '-' => true,
-                '*' => true,
-                '/' => true,
-                _ => false,
-            };
-        }
-        true
-    }
-
-    fn pop_token(&mut self) -> Token {
-        let token = match self.mode {
-            LexingMode::Normal => match self.buffer.to_uppercase().as_str() {
-                "CREATE" => Token::CREATE,
-                "TABLE" => Token::TABLE,
-                "VALUES" => Token::VALUES,
-                "SELECT" => Token::SELECT,
-                "INSERT" => Token::INSERT,
-                "UPDATE" => Token::UPDATE,
-                "DELETE" => Token::DELETE,
-                "FROM" => Token::FROM,
-                "AS" => Token::AS,
-                "," => Token::COMMA,
-                "(" => Token::LPARENS,
-                ")" => Token::RPARENS,
-                "+" => Token::PLUS,
-                "-" => Token::MINUS,
-                "*" => Token::MULTIPLICATION,
-                "/" => Token::DIVISION,
-                value => Token::IDENTIFIER(value.to_string()),
-            },
-            LexingMode::String => {
-                let value = self.buffer.to_owned();
-                self.buffer = String::new();
-                return Token::STRING(value);
-            }
-            LexingMode::Integer => Token::INTEGER(self.buffer.parse().expect("This won't happen")),
-            LexingMode::Float => Token::FLOAT(self.buffer.parse().expect("This won't happen")),
-        };
-        self.buffer = String::new();
-        self.mode = LexingMode::Normal;
-        token
-    }
-}
-
+/// Error occuring during the lexing phase
 #[derive(Debug)]
 pub struct LexingError {
     pub kind: LexingErrorKind,
@@ -216,6 +96,160 @@ pub enum LexingErrorKind {
     NoTokens,
     NotInteger,
     StringNotTerminated,
+}
+
+/// Internal buffer module for pushing characters and popping tokens.
+mod buffer {
+
+    use super::*;
+
+    #[derive(Debug, PartialEq)]
+    enum LexingMode {
+        Normal,
+        String,
+        Integer,
+        Float,
+    }
+
+    pub struct LexerBuffer {
+        mode: LexingMode,
+        buffer: String,
+    }
+
+    impl LexerBuffer {
+
+        /// Creates a new LexerBuffer instance
+        pub fn new() -> Self {
+            Self {
+                buffer: String::new(),
+                mode: LexingMode::Normal,
+            }
+        }
+
+        /// Pushes a new character to the buffer. Returns None if there is no ready token.
+        ///
+        /// Note that Some value is a Result as there might be an error during lexing.
+        pub fn push_char(
+            &mut self,
+            char: char,
+            peek: Option<&char>,
+        ) -> Option<Result<Token, LexingError>> {
+            // Toggle integer mode if char is digit, current lexing mode is normal and buffer is empty
+            // This allows digits inside identifiers, but identifier can't start with a digit
+            if char.is_numeric() && self.mode == LexingMode::Normal && self.buffer.is_empty() {
+                self.mode = LexingMode::Integer;
+            }
+            if char == '.' && self.mode == LexingMode::Integer {
+                self.mode = LexingMode::Float;
+            }
+            if char == '\'' && self.mode != LexingMode::String {
+                self.mode = LexingMode::String;
+                return None;
+            }
+            match self.mode {
+                LexingMode::Normal => {
+                    if char.is_whitespace() {
+                        return None;
+                    }
+                    self.buffer.push(char);
+                    if self.is_delimiting(Some(&char)) {
+                        return Some(Ok(self.pop_token()));
+                    }
+                    match self.is_delimiting(peek) {
+                        true => Some(Ok(self.pop_token())),
+                        false => None,
+                    }
+                }
+                LexingMode::Integer => {
+                    if !char.is_numeric() {
+                        return Some(Err(LexingError::new(LexingErrorKind::NotInteger)));
+                    }
+                    self.buffer.push(char);
+                    match self.is_delimiting(peek) {
+                        true => Some(Ok(self.pop_token())),
+                        false => None,
+                    }
+                }
+                LexingMode::Float => {
+                    if !char.is_numeric() && char != '.' {
+                        return Some(Err(LexingError::new(LexingErrorKind::NotInteger)));
+                    }
+                    self.buffer.push(char);
+                    match self.is_delimiting(peek) {
+                        true => Some(Ok(self.pop_token())),
+                        false => None,
+                    }
+                }
+                LexingMode::String => {
+                    // The string ends here
+                    if char == '\'' {
+                        return Some(Ok(self.pop_token()));
+                    }
+                    // Reached the end of input and string is not terminated
+                    if peek.is_none() {
+                        return Some(Err(LexingError::new(LexingErrorKind::StringNotTerminated)));
+                    }
+                    self.buffer.push(char);
+                    None
+                }
+            }
+        }
+
+        /// Tells if given character is delimitting.
+        fn is_delimiting(&self, char: Option<&char>) -> bool {
+            if let Some(c) = char {
+                if c.is_whitespace() {
+                    return true;
+                }
+                return match c {
+                    ',' => true,
+                    '(' => true,
+                    ')' => true,
+                    '+' => true,
+                    '-' => true,
+                    '*' => true,
+                    '/' => true,
+                    _ => false,
+                };
+            }
+            true
+        }
+
+        /// Pops a new Token out of this buffer and resets the buffer.
+        fn pop_token(&mut self) -> Token {
+            let token = match self.mode {
+                LexingMode::Normal => match self.buffer.to_uppercase().as_str() {
+                    "CREATE" => Token::CREATE,
+                    "TABLE" => Token::TABLE,
+                    "VALUES" => Token::VALUES,
+                    "SELECT" => Token::SELECT,
+                    "INSERT" => Token::INSERT,
+                    "UPDATE" => Token::UPDATE,
+                    "DELETE" => Token::DELETE,
+                    "FROM" => Token::FROM,
+                    "AS" => Token::AS,
+                    "," => Token::COMMA,
+                    "(" => Token::LPARENS,
+                    ")" => Token::RPARENS,
+                    "+" => Token::PLUS,
+                    "-" => Token::MINUS,
+                    "*" => Token::MULTIPLICATION,
+                    "/" => Token::DIVISION,
+                    value => Token::IDENTIFIER(value.to_string()),
+                },
+                LexingMode::String => {
+                    Token::STRING(self.buffer.to_owned())
+                }
+                LexingMode::Integer => {
+                    Token::INTEGER(self.buffer.parse().expect("This won't happen"))
+                }
+                LexingMode::Float => Token::FLOAT(self.buffer.parse().expect("This won't happen")),
+            };
+            self.buffer = String::new();
+            self.mode = LexingMode::Normal;
+            token
+        }
+    }
 }
 
 #[cfg(test)]
@@ -244,6 +278,8 @@ mod tests {
     fn test_lexing_errors() {
         assert_lexer_errors_on!("", LexingErrorKind::NoTokens);
         assert_lexer_errors_on!(" ", LexingErrorKind::NoTokens);
+        assert_lexer_errors_on!("   ", LexingErrorKind::NoTokens);
+        assert_lexer_errors_on!("\t", LexingErrorKind::NoTokens);
 
         assert_lexer_errors_on!("1d", LexingErrorKind::NotInteger);
         assert_lexer_errors_on!("12foo", LexingErrorKind::NotInteger);
@@ -251,7 +287,7 @@ mod tests {
         assert_lexer_errors_on!("'foo", LexingErrorKind::StringNotTerminated);
         assert_lexer_errors_on!("'foo bar", LexingErrorKind::StringNotTerminated);
 
-        // Corner cases
+        // TODO: Corner cases
         // assert_lexer_errors_on!("foo'", LexingErrorKind::StringNotTerminated);
     }
 

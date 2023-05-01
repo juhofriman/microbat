@@ -12,4 +12,5 @@ fn main() {
         println!("{:?}", lexer.next());
     }
     println!("has_next() -> {}", lexer.has_next());
+    println!("{:?}", lexer.next());
 }
