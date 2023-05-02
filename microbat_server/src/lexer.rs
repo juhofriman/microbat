@@ -41,7 +41,6 @@ pub struct Lexer {
 }
 
 impl Lexer {
-
     /// Creates a new lexer instance with given input.
     ///
     /// Lexing happens eagerly and thus this returns a Result.
@@ -129,7 +128,6 @@ mod buffer {
     }
 
     impl LexerBuffer {
-
         /// Creates a new LexerBuffer instance
         pub fn new() -> Self {
             Self {
@@ -249,9 +247,7 @@ mod buffer {
                     "/" => Token::DIVISION,
                     value => Token::IDENTIFIER(value.to_string()),
                 },
-                LexingMode::String => {
-                    Token::STRING(self.buffer.to_owned())
-                }
+                LexingMode::String => Token::STRING(self.buffer.to_owned()),
                 LexingMode::Integer => {
                     Token::INTEGER(self.buffer.parse().expect("This won't happen"))
                 }
