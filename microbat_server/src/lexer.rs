@@ -80,6 +80,15 @@ impl Lexer {
     pub fn has_next(&self) -> bool {
         self.current_position < self.tokens.len()
     }
+
+    /// Peeks for next token without advancing the lexer
+    pub fn peek(&self) -> Option<&Token> {
+        if self.current_position + 2 > self.tokens.len() {
+            return None;
+        }
+        let token = &self.tokens[self.current_position + 1];
+        Some(token)
+    }
 }
 
 /// Error occuring during the lexing phase
@@ -427,6 +436,16 @@ mod tests {
         assert!(lexer.has_next());
         lexer.next();
         assert!(!lexer.has_next(), "Lexer says has_next when all consumed");
+    }
+
+    #[test]
+    fn test_peek() {
+        let mut lexer = Lexer::with_input(String::from("select insert update")).expect("No");
+        assert_eq!(lexer.peek().unwrap(), &Token::INSERT);
+        lexer.next();
+        assert_eq!(lexer.peek().unwrap(), &Token::UPDATE);
+        lexer.next();
+        assert_eq!(lexer.peek(), None);
     }
 
     #[test]
