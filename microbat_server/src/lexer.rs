@@ -25,6 +25,8 @@ pub enum Token {
     FLOAT(f32),
 
     IDENTIFIER(String),
+
+    TERMINATE,
 }
 
 /// Stateful lexer instance for lexing a piece od SQL.
@@ -67,12 +69,9 @@ impl Lexer {
     /// Panics if lexer is consumed, thus use has_next to check if there
     /// actually is a next token.
     pub fn next(&mut self) -> &Token {
-        if self.current_position + 1 > self.tokens.len() {
-            panic!("Lexer already consumed to the end");
-        }
-        let token = &self.tokens[self.current_position];
+        let position = self.current_position;
         self.current_position += 1;
-        token
+        self.tokens.get(position).expect("Lexer already consumed to the end")
     }
 
     /// Checks if lexer has more tokens
@@ -82,11 +81,7 @@ impl Lexer {
 
     /// Peeks for next token without advancing the lexer
     pub fn peek(&self) -> Option<&Token> {
-        if self.current_position + 2 > self.tokens.len() {
-            return None;
-        }
-        let token = &self.tokens[self.current_position + 1];
-        Some(token)
+        self.tokens.get(self.current_position)
     }
 }
 
@@ -219,6 +214,7 @@ mod buffer {
                     '-' => true,
                     '*' => true,
                     '/' => true,
+                    ';' => true,
                     _ => false,
                 };
             }
@@ -245,6 +241,7 @@ mod buffer {
                     "-" => Token::MINUS,
                     "*" => Token::MULTIPLICATION,
                     "/" => Token::DIVISION,
+                    ";" => Token::TERMINATE,
                     value => Token::IDENTIFIER(value.to_string()),
                 },
                 LexingMode::String => Token::STRING(self.buffer.to_owned()),
@@ -347,10 +344,13 @@ mod tests {
         // Identifiers
         assert_lexing!("foo", Token::IDENTIFIER(String::from("FOO")));
         assert_lexing!("foo1", Token::IDENTIFIER(String::from("FOO1")));
+
+        assert_lexing!(";", Token::TERMINATE);
     }
 
     #[test]
     fn test_token_continuations() {
+        assert_lexing!("1;", Token::INTEGER(1), Token::TERMINATE);
         assert_lexing!(
             "foo,bar",
             Token::IDENTIFIER(String::from("FOO")),
@@ -437,15 +437,24 @@ mod tests {
     #[test]
     fn test_peek() {
         let mut lexer = Lexer::with_input(String::from("select insert update")).expect("No");
+        assert_eq!(lexer.peek().unwrap(), &Token::SELECT);
+        assert_eq!(lexer.next(), &Token::SELECT);
         assert_eq!(lexer.peek().unwrap(), &Token::INSERT);
-        lexer.next();
+        assert_eq!(lexer.next(), &Token::INSERT);
         assert_eq!(lexer.peek().unwrap(), &Token::UPDATE);
-        lexer.next();
+        assert_eq!(lexer.next(), &Token::UPDATE);
         assert_eq!(lexer.peek(), None);
     }
 
     #[test]
-    #[should_panic(expected="Lexer already consumed to the end")]
+    fn test_peek_2() {
+        let mut lexer = Lexer::with_input(String::from("12 select")).expect("No");
+        lexer.next();
+        assert_eq!(lexer.peek().unwrap(), &Token::SELECT);
+    }
+
+    #[test]
+    #[should_panic(expected = "Lexer already consumed to the end")]
     fn test_lexer_next_panics() {
         let mut lexer = Lexer::with_input(String::from("select")).expect("No");
         lexer.next();

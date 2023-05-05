@@ -1,11 +1,11 @@
-use std::vec;
-
-use crate::{lexer::{Lexer, LexingError, LexingErrorKind, self, Token}, expression::{ LeafExpression, Expression }};
-
+use crate::{
+    expression::{Expression, LeafExpression, Operation, OperationExpression},
+    lexer::{Lexer, LexingError, LexingErrorKind, Token},
+};
 
 enum SqlClause {
     ShowTables(String),
-    Select(Vec<Box<dyn Expression>>)
+    Select(Vec<Box<dyn Expression>>),
 }
 
 struct Parser {
@@ -32,7 +32,6 @@ impl From<LexingError> for ParseError {
 }
 
 impl Parser {
-
     fn new(input: String) -> Result<Self, ParseError> {
         Ok(Self {
             lexer: Lexer::with_input(input)?,
@@ -40,41 +39,70 @@ impl Parser {
     }
 
     fn parse(&mut self) -> Result<SqlClause, ParseError> {
-
         match self.lexer.next() {
-            Token::SELECT => {
-                self.parse_select()
-            },
-            _ => panic!("nonono")
+            Token::SELECT => self.parse_select(),
+            _ => panic!("nonono"),
         }
     }
 
     fn parse_select(&mut self) -> Result<SqlClause, ParseError> {
-        if self.lexer.has_next() {
-            return Ok(SqlClause::Select(vec![self.parse_expression(0)?]));
-        }
-        Err(ParseError { kind: ParseErrorKind::EndOfTokens })
+        Err(ParseError {
+            kind: ParseErrorKind::EndOfTokens,
+        })
     }
+}
 
-    fn parse_expression(&mut self, rpb: usize) -> Result<Box<dyn Expression>, ParseError> {
-        let expression = self.lexer.next().nud();
+fn nud(lexer: &mut Lexer) -> Result<Box<dyn Expression>, ParseError> {
+    match lexer.next() {
+        Token::INTEGER(v) => Ok(Box::new(LeafExpression::new(*v))),
+        Token::LPARENS => parse_expression(lexer, 0), 
+        token => panic!("Can't nud: {:?}", token),
+    }
+}
 
-        expression
+fn led(lexer: &mut Lexer, left: Box<dyn Expression>) -> Result<Box<dyn Expression>, ParseError> {
+    match lexer.next() {
+        Token::PLUS => {
+            let right = parse_expression(lexer, 0)?;
+            Ok(Box::new(OperationExpression {
+                operation: Operation::Plus,
+                left,
+                right,
+            }))
+        },
+        Token::MINUS => {
+            let right = parse_expression(lexer, 0)?;
+            Ok(Box::new(OperationExpression {
+                operation: Operation::Minus,
+                left,
+                right,
+            }))
+        },
+        Token::RPARENS => Ok(left),
+        token => panic!("Can't led: {:?}", token),
     }
 }
 
 impl Token {
-   fn nud(&self) -> Result<Box<dyn Expression>, ParseError> {
+    fn rbp(&self) -> usize {
         match self {
-            Token::INTEGER(value) => Ok(Box::new(LeafExpression::new(*value))),
-            _ => panic!("Can't parse nud")
-        }
-    } 
-    fn led(&self, left: Box<dyn Expression>) -> Result<Box<dyn Expression, ParseError>> {
-        match self {
-            _ => panic!("Can't parse led")
+            Token::INTEGER(_) => 1,
+            Token::PLUS => 5,
+            Token::MINUS => 5,
+            Token::LPARENS => 50,
+            Token::RPARENS => 1,
+            _ => 0, 
         }
     }
+}
+
+/// Parses next expression from the lexer
+fn parse_expression(lexer: &mut Lexer, rbp: usize) -> Result<Box<dyn Expression>, ParseError> {
+    let mut left = nud(lexer)?;
+    while lexer.peek().unwrap().rbp() > rbp {
+        left = led(lexer, left)?;
+    }
+    Ok(left)
 }
 
 #[cfg(test)]
@@ -83,25 +111,38 @@ mod tests {
     use crate::expression::Value;
 
     use super::*;
-    
-    // #[test]
-    fn test_parsing() {
-        let mut parser = Parser::new(String::from("select 1 + 1")).expect("Can't parse");
-        match parser.parse().expect("Can't parse") {
-            SqlClause::Select(from) => {
-                assert_eq!(from.len(), 1);
-                match from[0].eval() {
-                    Ok(val) => {
-                        match val {
-                            Value::Integer(v) => assert_eq!(v, 1),
-                            _ => panic!(),
-                        }
-                    },
-                    Err(_) => panic!(),
-                }
 
+    macro_rules! assert_expression_parsing {
+        ($s:literal, $e:expr) => {
+            string_expr_evaluates_to(String::from($s), $e);
+        };
+    }
+
+    #[test]
+    fn test_parsing() {
+        assert_expression_parsing!("1;", Value::Integer(1));
+        assert_expression_parsing!("1+1;", Value::Integer(2));
+        assert_expression_parsing!("5+100;", Value::Integer(105));
+        assert_expression_parsing!("1-1;", Value::Integer(0));
+    }
+    
+
+    #[test]
+    fn test_nested_expressions() {
+        assert_expression_parsing!("1 + (5 - 2) ;", Value::Integer(4));
+    }
+    
+    fn string_expr_evaluates_to(input: String, evals_to: Value) {
+        let mut lexer = Lexer::with_input(input.clone()).expect("Can't parse");
+        match parse_expression(&mut lexer, 1) {
+            Ok(expr) => match expr.eval() {
+                Ok(val) => {
+                    assert_eq!(val, evals_to, "{} did not eval as expected", input);
+                }
+                Err(_) => panic!("Can't eval expression"),
             },
-            _ => panic!("Expecting select clause")
+            Err(_) => panic!("Can't parse expression"),
         }
     }
+
 }

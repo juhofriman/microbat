@@ -1,8 +1,8 @@
 use crate::lexer::Lexer;
 
+mod expression;
 mod lexer;
 pub mod parser;
-mod expression;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
