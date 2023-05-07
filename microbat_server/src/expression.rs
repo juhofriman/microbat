@@ -1,9 +1,12 @@
+#[derive(Debug)]
 pub struct EvaluationError {}
 
 pub trait Expression {
     fn eval(&self) -> Result<Value, EvaluationError>;
+    fn visualize(&self) -> String;
 }
 
+#[derive(Debug)]
 pub struct LeafExpression<T> {
     data: T,
 }
@@ -18,8 +21,13 @@ impl Expression for LeafExpression<u32> {
     fn eval(&self) -> Result<Value, EvaluationError> {
         Ok(Value::Integer(self.data))
     }
+
+    fn visualize(&self) -> String {
+        self.data.to_string()
+    }
 }
 
+#[derive(Debug)]
 pub enum Operation {
     Plus,
     Minus,
@@ -43,6 +51,18 @@ impl Expression for OperationExpression {
             Operation::Multiply => todo!(),
             Operation::Divide => todo!(),
         }
+    }
+
+    fn visualize(&self) -> String {
+        let l = self.left.visualize();
+        let r = self.right.visualize();
+        let mut s = String::new();
+        s.push_str("( ");
+        s.push_str(&l);
+        s.push_str(format!("{:?}", self.operation).as_str());
+        s.push_str(&r);
+        s.push_str(" )");
+        s
     }
 }
 

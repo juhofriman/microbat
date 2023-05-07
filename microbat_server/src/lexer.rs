@@ -71,7 +71,9 @@ impl Lexer {
     pub fn next(&mut self) -> &Token {
         let position = self.current_position;
         self.current_position += 1;
-        self.tokens.get(position).expect("Lexer already consumed to the end")
+        self.tokens
+            .get(position)
+            .expect("Lexer already consumed to the end")
     }
 
     /// Checks if lexer has more tokens
