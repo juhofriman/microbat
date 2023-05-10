@@ -1,9 +1,10 @@
 [package]
-name = "microbat_server"
+name = "microbat_client"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-microbat_protocol = { path = "../microbat_protocol/" }
+microbat_protocol = { path = "../microbat_protocol" }
+rustyline = "11.0.0"

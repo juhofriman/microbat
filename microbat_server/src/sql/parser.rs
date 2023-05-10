@@ -1,9 +1,5 @@
-use std::vec;
-
-use crate::{
-    expression::{Expression, LeafExpression, Operation, OperationExpression},
-    lexer::{Lexer, LexingError, LexingErrorKind, Token},
-};
+use super::expression::{Expression, LeafExpression, Operation, OperationExpression};
+use super::lexer::{Lexer, LexingError, LexingErrorKind, Token};
 
 pub enum SqlClause {
     ShowTables(String),
@@ -113,7 +109,8 @@ mod tests {
 
     use std::panic;
 
-    use crate::expression::Value;
+
+    use crate::sql::expression::Value;
 
     use super::*;
 

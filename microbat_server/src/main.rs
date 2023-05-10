@@ -1,20 +1,10 @@
-use crate::{lexer::Lexer, parser::parse_sql};
+use connect::MicrobatServerOpts;
 
-mod expression;
-mod lexer;
-pub mod parser;
+mod sql;
+mod connect;
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    println!("Parsing '{}'", args[1]);
-    let ast = parse_sql(args[1].to_owned()).expect("Can't parse");
-    match ast {
-        parser::SqlClause::ShowTables(_) => todo!(),
-        parser::SqlClause::Select(projection) => {
-            println!("Select exprs evaluate to");
-            for expr in projection {
-                println!("{:?}", expr.eval());
-            } 
-        }, 
-    }
+    connect::run_microbat(MicrobatServerOpts {
+       bind: String::from("127.0.0.1:7878"), 
+    })
 }
