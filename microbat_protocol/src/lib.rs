@@ -70,11 +70,11 @@ pub fn read_message<T>(
     let mut message_buffer = vec![0; length];
     stream.read_exact(&mut message_buffer).unwrap();
 
-    println!(
-        ">> Reading {} bytes, msgId: {}",
-        message_buffer.len() + 1 + 4,
-        char::from(message_type)
-    );
+    // println!(
+        // ">> Reading {} bytes, msgId: {}",
+        // message_buffer.len() + 1 + 4,
+        // char::from(message_type)
+    // );
 
     deserializer(message_type, length, message_buffer.as_slice())
 }

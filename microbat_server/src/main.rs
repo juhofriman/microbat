@@ -2,6 +2,7 @@ use connect::MicrobatServerOpts;
 
 mod sql;
 mod connect;
+mod db;
 
 fn main() {
     connect::run_microbat(MicrobatServerOpts {

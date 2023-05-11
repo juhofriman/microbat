@@ -1,9 +1,10 @@
 use std::net::{TcpListener, TcpStream};
 use std::thread;
-use microbat_protocol::data_representation::{DataDescription, Column, DataType};
 use microbat_protocol::{read_message, MicrobatMessage};
 use microbat_protocol::client_messages::{deserialize_client_message, MicrobatClientMessage};
 use microbat_protocol::server_messages::MicrobatServerMessage;
+
+use crate::db::{execute_sql, QueryResult};
 
 pub struct MicrobatServerOpts {
     pub bind: String,
@@ -43,11 +44,21 @@ fn handle_connection(mut stream: TcpStream) {
                     },
                     MicrobatClientMessage::Query(query) => {
                         println!("Executing {}", query);
-                        let desc = DataDescription {
-                            columns: vec![Column { name: String::from("foo"), data_type: DataType::Integer }]
+                        match execute_sql(query) {
+                            Ok(result) => {
+                                match result {
+                                   QueryResult::Table(description, data) => {
+                                        MicrobatServerMessage::DataDescription(description).send(&mut stream).unwrap();
+                                        for row in data.into_iter() {
+                                            MicrobatServerMessage::DataRow(row).send(&mut stream).unwrap();
 
-                        };
-                        MicrobatServerMessage::DataDescription(desc).send(&mut stream).unwrap();
+                                        }
+                                    } 
+                                }
+
+                            },
+                            Err(_) => panic!(),
+                        }
                         MicrobatServerMessage::Ready.send(&mut stream).unwrap();
 
                     },
