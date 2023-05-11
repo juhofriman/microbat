@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-use super::expression::{Expression, LeafExpression, Operation, OperationExpression};
+use super::expression::{
+    Expression, LeafExpression, NegateExpression, Operation, OperationExpression,
+};
 use super::lexer::{Lexer, LexingError, LexingErrorKind, Token};
 
 pub enum SqlClause {
@@ -65,9 +67,14 @@ pub fn parse_sql(sql: String) -> Result<SqlClause, ParseError> {
 }
 
 fn nud(lexer: &mut Lexer) -> Result<Box<dyn Expression>, ParseError> {
-    match lexer.next() {
+    let token = lexer.next();
+    let rbp = token.rbp();
+    match token {
         Token::INTEGER(v) => Ok(Box::new(LeafExpression::new(*v))),
         Token::LPARENS => parse_expression(lexer, 0),
+        Token::MINUS => Ok(Box::new(NegateExpression {
+            expression: parse_expression(lexer, rbp)?,
+        })),
         token => Err(ParseError {
             kind: ParseErrorKind::NoNud(format!("{:?}", token)),
         }),
@@ -178,24 +185,23 @@ mod tests {
     #[test]
     fn test_negatives() {
         assert_expression_parsing!("2-10;", Data::Integer(-8));
+        assert_expression_parsing!("-5 + 5;", Data::Integer(0));
     }
 
     fn string_expr_evaluates_to(input: String, evals_to: Data) {
         let mut lexer = Lexer::with_input(input.clone()).expect("Can't parse");
-        match parse_expression(&mut lexer, 1) {
-            Ok(expr) => match expr.eval() {
-                Ok(val) => {
-                    assert_eq!(
-                        val,
-                        evals_to,
-                        "{} did not eval as expected {}",
-                        input,
-                        expr.visualize()
-                    );
-                }
-                Err(_) => panic!("Can't eval expression"),
-            },
-            Err(_) => panic!("Can't parse expression"),
+        let expr = parse_expression(&mut lexer, 1).unwrap();
+        match expr.eval() {
+            Ok(val) => {
+                assert_eq!(
+                    val,
+                    evals_to,
+                    "{} did not eval as expected {}",
+                    input,
+                    expr.visualize()
+                );
+            }
+            Err(_) => panic!("Can't eval expression"),
         }
     }
 

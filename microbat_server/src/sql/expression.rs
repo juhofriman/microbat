@@ -37,6 +37,27 @@ impl Expression for LeafExpression<i32> {
     }
 }
 
+pub struct NegateExpression {
+    pub expression: Box<dyn Expression>,
+}
+
+impl Expression for NegateExpression {
+    fn eval(&self) -> Result<Data, EvaluationError> {
+        let val = self.expression.eval()?;
+        match val {
+            Data::Null => todo!(),
+            Data::Integer(v) => Ok(Data::Integer(-v)),
+            Data::Varchar(_) => todo!(),
+        }
+    }
+
+    fn visualize(&self) -> String {
+        let mut s = String::from("-");
+        s.push_str(&self.expression.visualize());
+        s
+    }
+}
+
 #[derive(Debug)]
 pub enum Operation {
     Plus,

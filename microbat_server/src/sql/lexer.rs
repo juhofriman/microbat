@@ -366,6 +366,7 @@ mod tests {
     #[test]
     fn test_token_continuations() {
         assert_lexing!("1;", Token::INTEGER(1), Token::TERMINATE);
+        assert_lexing!("-1;", Token::MINUS, Token::INTEGER(1), Token::TERMINATE);
         assert_lexing!(
             "foo,bar",
             Token::IDENTIFIER(String::from("FOO")),
