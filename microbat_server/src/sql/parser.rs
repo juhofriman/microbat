@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use super::expression::{Expression, LeafExpression, Operation, OperationExpression};
 use super::lexer::{Lexer, LexingError, LexingErrorKind, Token};
 
@@ -8,14 +10,28 @@ pub enum SqlClause {
 
 #[derive(Debug)]
 pub struct ParseError {
-    kind: ParseErrorKind,
+    pub kind: ParseErrorKind,
 }
 
 #[derive(Debug, PartialEq)]
-enum ParseErrorKind {
+pub enum ParseErrorKind {
     LexingError(LexingErrorKind),
     UnexpectedToken,
     EndOfTokens,
+    NoNud(String),
+    NoLed(String),
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.kind {
+            ParseErrorKind::LexingError(le) => write!(f, "{}", le), 
+            ParseErrorKind::UnexpectedToken => write!(f, "Unexpected token... somewhere"),
+            ParseErrorKind::EndOfTokens => write!(f, "Unexpected end of tokens"),
+            ParseErrorKind::NoNud(token) => write!(f, "No nud {}", token),
+            ParseErrorKind::NoLed(token) => write!(f, "No led {}", token),
+        }
+    }
 }
 
 impl From<LexingError> for ParseError {
@@ -53,7 +69,7 @@ fn nud(lexer: &mut Lexer) -> Result<Box<dyn Expression>, ParseError> {
     match lexer.next() {
         Token::INTEGER(v) => Ok(Box::new(LeafExpression::new(*v))),
         Token::LPARENS => parse_expression(lexer, 0),
-        token => panic!("Can't nud: {:?}", token),
+        token => Err(ParseError { kind: ParseErrorKind::NoNud(format!("{:?}", token)) }) 
     }
 }
 
@@ -78,7 +94,7 @@ fn led(lexer: &mut Lexer, left: Box<dyn Expression>) -> Result<Box<dyn Expressio
             }))
         }
         Token::RPARENS => Ok(left),
-        token => panic!("Can't led: {:?}", token),
+        token => Err(ParseError { kind: ParseErrorKind::NoLed(format!("{:?}", token))}),
     }
 }
 

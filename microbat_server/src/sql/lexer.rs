@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 /// Tokens available for parser
 #[derive(Debug, PartialEq)]
 pub enum Token {
@@ -105,6 +107,16 @@ pub enum LexingErrorKind {
     NoTokens,
     NotInteger,
     StringNotTerminated,
+}
+
+impl Display for LexingErrorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LexingErrorKind::NoTokens => write!(f, "Lexer is empty"),
+            LexingErrorKind::NotInteger => write!(f, "Doesn't look like an integer"),
+            LexingErrorKind::StringNotTerminated => write!(f, "String is not terminated"),
+        }
+    }
 }
 
 /// Internal buffer module for pushing characters and popping tokens.

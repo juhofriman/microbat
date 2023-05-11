@@ -57,7 +57,9 @@ fn handle_connection(mut stream: TcpStream) {
                                 }
 
                             },
-                            Err(_) => panic!(),
+                            Err(err) => {
+                                MicrobatServerMessage::Error(err.msg).send(&mut stream).unwrap();
+                            },
                         }
                         MicrobatServerMessage::Ready.send(&mut stream).unwrap();
 
