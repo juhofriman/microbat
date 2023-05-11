@@ -109,8 +109,7 @@ mod tests {
 
     use std::panic;
 
-
-    use crate::sql::expression::Value;
+    use microbat_protocol::data_representation::Data;
 
     use super::*;
 
@@ -134,23 +133,23 @@ mod tests {
 
     #[test]
     fn test_parsing() {
-        assert_expression_parsing!("1;", Value::Integer(1));
-        assert_expression_parsing!("1+1;", Value::Integer(2));
-        assert_expression_parsing!("5+100;", Value::Integer(105));
-        assert_expression_parsing!("1-1;", Value::Integer(0));
+        assert_expression_parsing!("1;", Data::Integer(1));
+        assert_expression_parsing!("1+1;", Data::Integer(2));
+        assert_expression_parsing!("5+100;", Data::Integer(105));
+        assert_expression_parsing!("1-1;", Data::Integer(0));
     }
 
     #[test]
     fn test_nested_expressions() {
-        assert_expression_parsing!("1 + 2 + 3;", Value::Integer(6));
-        assert_expression_parsing!("1 + (5 - 2);", Value::Integer(4));
-        assert_expression_parsing!("10 - (2 + 2);", Value::Integer(6));
-        assert_expression_parsing!("10 - 5 - 2;", Value::Integer(3));
-        assert_expression_parsing!("(10 - 5) - 2;", Value::Integer(3));
-        assert_expression_parsing!("10 - (5 - 2);", Value::Integer(7));
+        assert_expression_parsing!("1 + 2 + 3;", Data::Integer(6));
+        assert_expression_parsing!("1 + (5 - 2);", Data::Integer(4));
+        assert_expression_parsing!("10 - (2 + 2);", Data::Integer(6));
+        assert_expression_parsing!("10 - 5 - 2;", Data::Integer(3));
+        assert_expression_parsing!("(10 - 5) - 2;", Data::Integer(3));
+        assert_expression_parsing!("10 - (5 - 2);", Data::Integer(7));
     }
 
-    fn string_expr_evaluates_to(input: String, evals_to: Value) {
+    fn string_expr_evaluates_to(input: String, evals_to: Data) {
         let mut lexer = Lexer::with_input(input.clone()).expect("Can't parse");
         match parse_expression(&mut lexer, 1) {
             Ok(expr) => match expr.eval() {
@@ -175,25 +174,25 @@ mod tests {
 
     #[test]
     fn test_sql_parsing_only_with_projection() {
-        assert_select_parsing("select 1;", vec![Value::Integer(1)]);
-        assert_select_parsing("select 1 + 52;", vec![Value::Integer(53)]);
-        assert_select_parsing("select 1, 2;", vec![Value::Integer(1), Value::Integer(2)]);
+        assert_select_parsing("select 1;", vec![Data::Integer(1)]);
+        assert_select_parsing("select 1 + 52;", vec![Data::Integer(53)]);
+        assert_select_parsing("select 1, 2;", vec![Data::Integer(1), Data::Integer(2)]);
         assert_select_parsing(
             "select 1, 2, 3, 4;",
             vec![
-                Value::Integer(1),
-                Value::Integer(2),
-                Value::Integer(3),
-                Value::Integer(4),
+                Data::Integer(1),
+                Data::Integer(2),
+                Data::Integer(3),
+                Data::Integer(4),
             ],
         );
         assert_select_parsing(
             "select (1 + 1), (6 - (2 + 3));",
-            vec![Value::Integer(2), Value::Integer(1)],
+            vec![Data::Integer(2), Data::Integer(1)],
         );
     }
 
-    fn assert_select_parsing(input: &str, expr_results: Vec<Value>) {
+    fn assert_select_parsing(input: &str, expr_results: Vec<Data>) {
         let sql_ast = parse_sql(input.to_owned()).expect(format!("Can't parse {}", input).as_str());
         match sql_ast {
             SqlClause::Select(exprs) => {

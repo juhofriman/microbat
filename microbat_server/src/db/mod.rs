@@ -1,5 +1,5 @@
 use microbat_protocol::data_representation::{DataDescription, DataRow, DataType, Column, Data};
-use crate::sql::{parser::{parse_sql, SqlClause::{ShowTables, Select}}, expression::Value};
+use crate::sql::{parser::{parse_sql, SqlClause::{ShowTables, Select}}};
 
 pub enum QueryResult {
     Table(DataDescription, Vec<DataRow>)
@@ -16,7 +16,7 @@ pub fn execute_sql(sql: String) -> Result<QueryResult, String> {
                         match expr.eval() {
                             Ok(val) => {
                                 match val {
-                                   Value::Integer(v) => {
+                                   Data::Integer(v) => {
                                         let mut name = String::from("column_");
                                         name.push_str(index.to_string().as_str());
                                         columns.push(Column {

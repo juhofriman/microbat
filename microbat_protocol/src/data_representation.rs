@@ -22,11 +22,11 @@ pub struct DataRow {
 }
 
 #[derive(Debug)]
-pub struct ExpressionError {
+pub struct DataError {
     pub msg: String,
 }
 
-impl Display for ExpressionError {
+impl Display for DataError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "Expression error: {}", self.msg)
     }
@@ -78,23 +78,23 @@ impl Data {
         }
     }
 
-    pub fn apply_plus(&self, right: Data) -> Result<Data, ExpressionError> {
+    pub fn apply_plus(&self, right: Data) -> Result<Data, DataError> {
         match (self, &right) {
             (Data::Integer(l_value), Data::Integer(r_value)) => {
                 Ok(Data::Integer(l_value + r_value))
             }
-            _ => Err(ExpressionError {
+            _ => Err(DataError {
                 msg: format!("Can't apply {:?} + {:?}", self, right),
             }),
         }
     }
 
-    pub fn apply_minus(&self, right: Data) -> Result<Data, ExpressionError> {
+    pub fn apply_minus(&self, right: Data) -> Result<Data, DataError> {
         match (self, &right) {
             (Data::Integer(l_value), Data::Integer(r_value)) => {
                 Ok(Data::Integer(l_value - r_value))
             }
-            _ => Err(ExpressionError {
+            _ => Err(DataError {
                 msg: format!("Can't apply {:?} + {:?}", self, right),
             }),
         }
