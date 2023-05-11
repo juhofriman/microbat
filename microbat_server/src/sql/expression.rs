@@ -27,7 +27,7 @@ impl<T> LeafExpression<T> {
     }
 }
 
-impl Expression for LeafExpression<u32> {
+impl Expression for LeafExpression<i32> {
     fn eval(&self) -> Result<Data, EvaluationError> {
         Ok(Data::Integer(self.data))
     }
@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn test_expr() {
-        let expr: LeafExpression<u32> = LeafExpression::new(123);
+        let expr: LeafExpression<i32> = LeafExpression::new(123);
         let v = expr.eval();
         assert!(v.is_ok());
     }

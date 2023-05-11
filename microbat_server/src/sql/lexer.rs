@@ -21,7 +21,8 @@ pub enum Token {
     DIVISION,
 
     STRING(String),
-    INTEGER(u32),
+    // Dunno, if this should be signed or unsigned
+    INTEGER(i32),
     FLOAT(f32),
 
     IDENTIFIER(String),

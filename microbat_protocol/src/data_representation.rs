@@ -49,8 +49,7 @@ pub enum DataType {
 #[derive(PartialEq, Debug, Clone)]
 pub enum Data {
     Null,
-    // TODO: maybe this should be i32 :D
-    Integer(u32),
+    Integer(i32),
     Varchar(String),
 }
 
@@ -105,7 +104,7 @@ pub fn deserialize_data_column(marker: u8, bytes: &[u8]) -> Result<Data, Microba
     match marker {
         TYPE_BYTE_NULL => Ok(Data::Null),
         TYPE_BYTE_INTEGER => {
-            let value = u32::from_be_bytes(bytes.try_into().unwrap());
+            let value = i32::from_be_bytes(bytes.try_into().unwrap());
             Ok(Data::Integer(value))
         }
         TYPE_BYTE_VARCHAR => {

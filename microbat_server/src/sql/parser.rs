@@ -149,6 +149,11 @@ mod tests {
         assert_expression_parsing!("10 - (5 - 2);", Data::Integer(7));
     }
 
+    #[test]
+    fn test_negatives() {
+        assert_expression_parsing!("2-10;", Data::Integer(-8));
+    }
+
     fn string_expr_evaluates_to(input: String, evals_to: Data) {
         let mut lexer = Lexer::with_input(input.clone()).expect("Can't parse");
         match parse_expression(&mut lexer, 1) {
