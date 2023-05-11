@@ -25,7 +25,7 @@ pub enum ParseErrorKind {
 impl Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
-            ParseErrorKind::LexingError(le) => write!(f, "{}", le), 
+            ParseErrorKind::LexingError(le) => write!(f, "{}", le),
             ParseErrorKind::UnexpectedToken => write!(f, "Unexpected token... somewhere"),
             ParseErrorKind::EndOfTokens => write!(f, "Unexpected end of tokens"),
             ParseErrorKind::NoNud(token) => write!(f, "No nud {}", token),
@@ -54,11 +54,10 @@ pub fn parse_sql(sql: String) -> Result<SqlClause, ParseError> {
             }
             if lexer.peek() == Some(&Token::FROM) {
                 lexer.next();
-                
             }
 
             Ok(SqlClause::Select(exprs))
-        },
+        }
         _ => Err(ParseError {
             kind: ParseErrorKind::UnexpectedToken,
         }),
@@ -69,7 +68,9 @@ fn nud(lexer: &mut Lexer) -> Result<Box<dyn Expression>, ParseError> {
     match lexer.next() {
         Token::INTEGER(v) => Ok(Box::new(LeafExpression::new(*v))),
         Token::LPARENS => parse_expression(lexer, 0),
-        token => Err(ParseError { kind: ParseErrorKind::NoNud(format!("{:?}", token)) }) 
+        token => Err(ParseError {
+            kind: ParseErrorKind::NoNud(format!("{:?}", token)),
+        }),
     }
 }
 
@@ -94,7 +95,9 @@ fn led(lexer: &mut Lexer, left: Box<dyn Expression>) -> Result<Box<dyn Expressio
             }))
         }
         Token::RPARENS => Ok(left),
-        token => Err(ParseError { kind: ParseErrorKind::NoLed(format!("{:?}", token))}),
+        token => Err(ParseError {
+            kind: ParseErrorKind::NoLed(format!("{:?}", token)),
+        }),
     }
 }
 
@@ -114,7 +117,14 @@ impl Token {
 /// Parses next expression from the lexer
 fn parse_expression(lexer: &mut Lexer, rbp: usize) -> Result<Box<dyn Expression>, ParseError> {
     let mut left = nud(lexer)?;
-    while lexer.peek().ok_or(ParseError { kind: ParseErrorKind::EndOfTokens })?.rbp() > rbp {
+    while lexer
+        .peek()
+        .ok_or(ParseError {
+            kind: ParseErrorKind::EndOfTokens,
+        })?
+        .rbp()
+        > rbp
+    {
         left = led(lexer, left)?;
     }
     Ok(left)
@@ -132,7 +142,7 @@ mod tests {
     macro_rules! assert_expression_error {
         ($s:literal, $e:expr) => {
             string_expr_fails(String::from($s), $e);
-        }
+        };
     }
 
     macro_rules! assert_expression_parsing {
@@ -175,7 +185,13 @@ mod tests {
         match parse_expression(&mut lexer, 1) {
             Ok(expr) => match expr.eval() {
                 Ok(val) => {
-                    assert_eq!(val, evals_to, "{} did not eval as expected {}", input, expr.visualize());
+                    assert_eq!(
+                        val,
+                        evals_to,
+                        "{} did not eval as expected {}",
+                        input,
+                        expr.visualize()
+                    );
                 }
                 Err(_) => panic!("Can't eval expression"),
             },
@@ -186,7 +202,11 @@ mod tests {
     fn string_expr_fails(input: String, expected_error: ParseErrorKind) {
         let mut lexer = Lexer::with_input(input.clone()).expect("nonono");
         let result = parse_expression(&mut lexer, 0);
-        assert!(result.is_err(), "Expected \"{}\" to error but it succeeded", input);
+        assert!(
+            result.is_err(),
+            "Expected \"{}\" to error but it succeeded",
+            input
+        );
         match result {
             Ok(_) => assert!(false, "Expected \"{}\" to error but it succeeded", input),
             Err(error) => assert_eq!(error.kind, expected_error),

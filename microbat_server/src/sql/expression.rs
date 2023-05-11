@@ -7,7 +7,7 @@ pub struct EvaluationError {
 
 impl From<DataError> for EvaluationError {
     fn from(value: DataError) -> Self {
-        EvaluationError { msg: value.msg } 
+        EvaluationError { msg: value.msg }
     }
 }
 
