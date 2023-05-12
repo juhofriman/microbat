@@ -1,8 +1,14 @@
+pub mod manager;
+
+use std::sync::{Arc, RwLock};
+
 use crate::sql::parser::{
     parse_sql, ParseError,
     SqlClause::{Select, ShowTables},
 };
 use microbat_protocol::data_representation::{Column, Data, DataDescription, DataRow, DataType};
+
+use self::manager::{DatabaseManager, MicrobatDataError};
 
 pub struct MicrobatQueryError {
     pub msg: String,
@@ -16,13 +22,39 @@ impl From<ParseError> for MicrobatQueryError {
     }
 }
 
+impl From<MicrobatDataError> for MicrobatQueryError {
+    fn from(value: MicrobatDataError) -> Self {
+        MicrobatQueryError {
+            msg: format!("{}", value.msg),
+        }
+    }
+}
+
 pub enum QueryResult {
     Table(DataDescription, Vec<DataRow>),
 }
 
-pub fn execute_sql(sql: String) -> Result<QueryResult, MicrobatQueryError> {
+pub fn execute_sql(
+    sql: String,
+    manager: &Arc<RwLock<impl DatabaseManager>>,
+) -> Result<QueryResult, MicrobatQueryError> {
     match parse_sql(sql)? {
-        ShowTables(_) => todo!(),
+        ShowTables => {
+            let database = manager.read().expect("RwLock poisoned");
+            let mut rows = vec![];
+            for table in database.get_tables()? {
+                rows.push(DataRow {
+                    columns: vec![Data::Varchar(table)],
+                })
+            }
+
+            Ok(QueryResult::Table(DataDescription {
+                columns: vec![Column {
+                    name: String::from("table"),
+                    data_type: DataType::Varchar,
+                }]
+            }, rows)) 
+        }
         Select(projection) => {
             let mut columns: Vec<Column> = vec![];
             let mut data_rows: Vec<Data> = vec![];

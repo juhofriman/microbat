@@ -6,7 +6,7 @@ use super::expression::{
 use super::lexer::{Lexer, LexingError, LexingErrorKind, Token};
 
 pub enum SqlClause {
-    ShowTables(String),
+    ShowTables,
     Select(Vec<Box<dyn Expression>>),
 }
 
@@ -47,6 +47,14 @@ impl From<LexingError> for ParseError {
 pub fn parse_sql(sql: String) -> Result<SqlClause, ParseError> {
     let mut lexer = Lexer::with_input(sql)?;
     match lexer.next() {
+        Token::SHOW => {
+            if lexer.next() == &Token::TABLES {
+                return Ok(SqlClause::ShowTables);
+            }
+            Err(ParseError {
+                kind: ParseErrorKind::UnexpectedToken,
+            })
+        }
         Token::SELECT => {
             let mut exprs = vec![];
             exprs.push(parse_expression(&mut lexer, 0)?);
@@ -216,6 +224,15 @@ mod tests {
         match result {
             Ok(_) => assert!(false, "Expected \"{}\" to error but it succeeded", input),
             Err(error) => assert_eq!(error.kind, expected_error),
+        }
+    }
+
+    #[test]
+    fn test_show_table_parsing() {
+        let sql_ast = parse_sql("SHOW TABLES;".to_owned()).expect("Can't parse SHOW TABLES");
+        match sql_ast {
+            SqlClause::ShowTables => {}
+            _ => panic!("Didn't parse to ShowTables"),
         }
     }
 

@@ -3,6 +3,9 @@ use std::fmt::Display;
 /// Tokens available for parser
 #[derive(Debug, PartialEq)]
 pub enum Token {
+    SHOW,
+    TABLES,
+
     CREATE,
     TABLE,
     VALUES,
@@ -240,6 +243,8 @@ mod buffer {
         fn pop_token(&mut self) -> Token {
             let token = match self.mode {
                 LexingMode::Normal => match self.buffer.to_uppercase().as_str() {
+                    "SHOW" => Token::SHOW,
+                    "TABLES" => Token::TABLES,
                     "CREATE" => Token::CREATE,
                     "TABLE" => Token::TABLE,
                     "VALUES" => Token::VALUES,
@@ -314,6 +319,8 @@ mod tests {
     #[test]
     fn test_lexing_single_token() {
         // Reserved words
+        assert_lexing!("show", Token::SHOW);
+        assert_lexing!("tables", Token::TABLES);
         assert_lexing!("select", Token::SELECT);
         assert_lexing!("SELECT", Token::SELECT);
         assert_lexing!("SeLeCt", Token::SELECT);
