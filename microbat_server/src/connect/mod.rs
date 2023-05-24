@@ -1,5 +1,5 @@
 use microbat_protocol::client_messages::{deserialize_client_message, MicrobatClientMessage};
-use microbat_protocol::data_representation::{Column, DataType};
+use microbat_protocol::data_representation::{Column, DataType, Data};
 use microbat_protocol::server_messages::MicrobatServerMessage;
 use microbat_protocol::{read_message, MicrobatMessage};
 use std::net::{TcpListener, TcpStream};
@@ -20,7 +20,7 @@ pub fn run_microbat(server_opts: MicrobatServerOpts) {
     let mut init_db = database.write().unwrap();
     init_db
         .create_table(
-            String::from("people"),
+            String::from("PEOPLE"),
             vec![
                 Column {
                     name: String::from("id"),
@@ -41,9 +41,21 @@ pub fn run_microbat(server_opts: MicrobatServerOpts) {
             ],
         )
         .unwrap();
+    init_db.insert("PEOPLE", vec![
+        Data::Integer(1),
+        Data::Varchar(String::from("Juho")),
+        Data::Integer(19),
+        Data::Varchar(String::from("Life is life")),
+    ]).unwrap();
+    init_db.insert("PEOPLE", vec![
+        Data::Integer(2),
+        Data::Varchar(String::from("Simo")),
+        Data::Integer(19),
+        Data::Varchar(String::from("Only death is real")),
+    ]).unwrap();
     init_db
         .create_table(
-            String::from("departments"),
+            String::from("DEPARTMENTS"),
             vec![
                 Column {
                     name: String::from("id"),

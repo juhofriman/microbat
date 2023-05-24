@@ -7,7 +7,7 @@ use super::lexer::{Lexer, LexingError, LexingErrorKind, Token};
 
 pub enum SqlClause {
     ShowTables,
-    Select(Vec<Box<dyn Expression>>),
+    Select(Vec<Box<dyn Expression>>, Vec<String>),
 }
 
 #[derive(Debug)]
@@ -57,16 +57,27 @@ pub fn parse_sql(sql: String) -> Result<SqlClause, ParseError> {
         }
         Token::SELECT => {
             let mut exprs = vec![];
+            let mut from = vec![];
             exprs.push(parse_expression(&mut lexer, 0)?);
             while lexer.peek() == Some(&Token::COMMA) {
                 lexer.next();
                 exprs.push(parse_expression(&mut lexer, 0)?);
             }
-            if lexer.peek() == Some(&Token::FROM) {
+            if lexer.peek_is(&Token::FROM) {
                 lexer.next();
+                from.push(lexer.next_identifier()?);
+                while lexer.peek() == Some(&Token::COMMA) {
+                    lexer.next();
+                    match lexer.next() {
+                       Token::IDENTIFIER(name) => {
+                            from.push(name.to_owned());
+                        },
+                       _ => return Err(ParseError { kind: ParseErrorKind::UnexpectedToken })
+                    }
+                }
             }
 
-            Ok(SqlClause::Select(exprs))
+            Ok(SqlClause::Select(exprs, from))
         }
         _ => Err(ParseError {
             kind: ParseErrorKind::UnexpectedToken,
@@ -238,10 +249,10 @@ mod tests {
 
     #[test]
     fn test_sql_parsing_only_with_projection() {
-        assert_select_parsing("select 1;", vec![Data::Integer(1)]);
-        assert_select_parsing("select 1 + 52;", vec![Data::Integer(53)]);
-        assert_select_parsing("select 1, 2;", vec![Data::Integer(1), Data::Integer(2)]);
-        assert_select_parsing(
+        assert_parsing("select 1;", vec![Data::Integer(1)], vec![]);
+        assert_parsing("select 1 + 52;", vec![Data::Integer(53)], vec![]);
+        assert_parsing("select 1, 2;", vec![Data::Integer(1), Data::Integer(2)], vec![]);
+        assert_parsing(
             "select 1, 2, 3, 4;",
             vec![
                 Data::Integer(1),
@@ -249,20 +260,31 @@ mod tests {
                 Data::Integer(3),
                 Data::Integer(4),
             ],
+            vec![]
         );
-        assert_select_parsing(
+        assert_parsing(
             "select (1 + 1), (6 - (2 + 3));",
             vec![Data::Integer(2), Data::Integer(1)],
+            vec![]
         );
     }
 
-    fn assert_select_parsing(input: &str, expr_results: Vec<Data>) {
+    #[test]
+    fn test_from_parsing() {
+        assert_parsing("select 1 from bar", vec![Data::Integer(1)], vec![String::from("BAR")]);
+        assert_parsing("select 1 from foo, bar", vec![Data::Integer(1)], vec![String::from("FOO"), String::from("BAR")]);
+    }
+
+    fn assert_parsing(input: &str, expected_projections: Vec<Data>, expected_from: Vec<String>) {
         let sql_ast = parse_sql(input.to_owned()).expect(format!("Can't parse {}", input).as_str());
         match sql_ast {
-            SqlClause::Select(exprs) => {
-                assert_eq!(exprs.len(), expr_results.len());
-                for (index, expecter_result) in expr_results.into_iter().enumerate() {
-                    assert_eq!(exprs[index].eval().expect("Can't eval"), expecter_result);
+            SqlClause::Select(projections, from) => {
+                assert_eq!(projections.len(), expected_projections.len());
+                for (index, expecter_result) in expected_projections.into_iter().enumerate() {
+                    assert_eq!(projections[index].eval().expect("Can't eval"), expecter_result);
+                }
+                if expected_from.len() > 0 {
+                    assert_eq!(from, expected_from);
                 }
             }
 

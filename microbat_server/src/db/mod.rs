@@ -1,6 +1,6 @@
 pub mod manager;
 
-use std::sync::{Arc, RwLock};
+use std::{sync::{Arc, RwLock}, vec};
 
 use crate::sql::parser::{
     parse_sql, ParseError,
@@ -55,26 +55,32 @@ pub fn execute_sql(
                 }]
             }, rows)) 
         }
-        Select(projection) => {
+        Select(projection, from) => {
+            let database = manager.read().expect("RwLock poisoned");
+
+            let table = database.fetch(from.get(0).unwrap())?;
             let mut columns: Vec<Column> = vec![];
             let mut data_rows: Vec<Data> = vec![];
-            for (index, expr) in projection.into_iter().enumerate() {
-                match expr.eval() {
-                    Ok(val) => match val {
-                        Data::Integer(v) => {
-                            let mut name = String::from("column_");
-                            name.push_str(index.to_string().as_str());
-                            columns.push(Column {
-                                name,
-                                data_type: DataType::Integer,
-                            });
-                            data_rows.push(Data::Integer(v))
-                        }
-                        _ => panic!(),
-                    },
-                    Err(_) => panic!(),
+            for row in table.into_iter() {
+                for (index, expr) in projection.iter().enumerate() {
+                    match expr.eval() {
+                        Ok(val) => match val {
+                            Data::Integer(v) => {
+                                let mut name = String::from("column_");
+                                name.push_str(index.to_string().as_str());
+                                columns.push(Column {
+                                    name,
+                                    data_type: DataType::Integer,
+                                });
+                                data_rows.push(Data::Integer(v))
+                            }
+                            _ => panic!(),
+                        },
+                        Err(_) => panic!(),
+                    }
                 }
             }
+            println!("{:?}", from);
             return Ok(QueryResult::Table(
                 DataDescription { columns },
                 vec![DataRow { columns: data_rows }],

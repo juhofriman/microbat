@@ -91,6 +91,21 @@ impl Lexer {
     pub fn peek(&self) -> Option<&Token> {
         self.tokens.get(self.current_position)
     }
+
+    pub fn peek_is(&self, expected: &Token) -> bool {
+        match self.peek() {
+            Some(token) => token == expected, 
+            None => false, 
+        }
+    }
+    
+    pub fn next_identifier(&mut self) -> Result<String, LexingError> {
+        match self.next() {
+            Token::IDENTIFIER(value) => Ok(value.to_owned()),
+           _ => Err(LexingError { kind: LexingErrorKind::ExpectingIdentifier}) 
+        }
+    }
+
 }
 
 /// Error occuring during the lexing phase
@@ -110,6 +125,7 @@ pub enum LexingErrorKind {
     NoTokens,
     NotInteger,
     StringNotTerminated,
+    ExpectingIdentifier,
 }
 
 impl Display for LexingErrorKind {
@@ -118,6 +134,7 @@ impl Display for LexingErrorKind {
             LexingErrorKind::NoTokens => write!(f, "Lexer is empty"),
             LexingErrorKind::NotInteger => write!(f, "Doesn't look like an integer"),
             LexingErrorKind::StringNotTerminated => write!(f, "String is not terminated"),
+            LexingErrorKind::ExpectingIdentifier => write!(f, "Expecting identifier"),
         }
     }
 }
@@ -446,6 +463,12 @@ mod tests {
     }
 
     #[test]
+    fn test_next_identifier() {
+        let mut lexer = Lexer::with_input(String::from("foobar")).expect("No");
+        assert_eq!(lexer.next_identifier().unwrap(), "FOOBAR")
+    }
+
+    #[test]
     fn test_has_next() {
         let mut lexer = Lexer::with_input(String::from("select insert update")).expect("No");
         assert!(lexer.has_next());
@@ -461,12 +484,16 @@ mod tests {
     fn test_peek() {
         let mut lexer = Lexer::with_input(String::from("select insert update")).expect("No");
         assert_eq!(lexer.peek().unwrap(), &Token::SELECT);
+        assert!(lexer.peek_is(&Token::SELECT));
         assert_eq!(lexer.next(), &Token::SELECT);
         assert_eq!(lexer.peek().unwrap(), &Token::INSERT);
+        assert!(lexer.peek_is(&Token::INSERT));
         assert_eq!(lexer.next(), &Token::INSERT);
         assert_eq!(lexer.peek().unwrap(), &Token::UPDATE);
+        assert!(lexer.peek_is(&Token::UPDATE));
         assert_eq!(lexer.next(), &Token::UPDATE);
         assert_eq!(lexer.peek(), None);
+        assert!(!lexer.peek_is(&Token::UPDATE));
     }
 
     #[test]
