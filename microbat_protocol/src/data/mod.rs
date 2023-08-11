@@ -1,5 +1,5 @@
 use crate::static_values::{TYPE_BYTE_INTEGER, TYPE_BYTE_NULL, TYPE_BYTE_VARCHAR};
-use crate::MicrobatProtocolError;
+use crate::protocol_error::MicrobatProtocolError;
 use std::fmt::{Display, Formatter};
 
 /// Serializable data description of incoming rows in result set.

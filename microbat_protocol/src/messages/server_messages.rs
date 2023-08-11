@@ -1,7 +1,9 @@
 use crate::{
-    data::*, static_values as values, MicrobatMessage, MicrobatProtocolError,
+    data::*, static_values as values, protocol_error::MicrobatProtocolError
 };
 use std::fmt::{Display, Formatter};
+
+use super::MicrobatMessage;
 
 /// Enum of messages that can originate from the server
 #[derive(Debug, PartialEq)]
@@ -155,8 +157,9 @@ pub fn deserialize_server_message(
 #[cfg(test)]
 mod server_message_tests {
 
+    use crate::messages::serialization_test_util::assert_serialisation;
+
     use super::*;
-    use crate::serialization_test_util::assert_serialisation;
 
     #[test]
     fn test_server_message_serialisation() {

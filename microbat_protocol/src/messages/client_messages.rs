@@ -1,4 +1,6 @@
-use crate::{static_values as values, MicrobatMessage, MicrobatProtocolError};
+use crate::{static_values as values, protocol_error::MicrobatProtocolError};
+
+use super::MicrobatMessage;
 
 /// Enum of messages that can originate from the client
 #[derive(Debug, PartialEq)]
@@ -66,8 +68,9 @@ pub fn deserialize_client_message(
 #[cfg(test)]
 mod client_message_tests {
 
+    use crate::messages::serialization_test_util::assert_serialisation;
+
     use super::*;
-    use crate::serialization_test_util::assert_serialisation;
 
     #[test]
     fn test_client_handshake_deserialization() {

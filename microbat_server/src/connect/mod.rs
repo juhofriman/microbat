@@ -1,7 +1,7 @@
-use microbat_protocol::client_messages::{deserialize_client_message, MicrobatClientMessage};
+use microbat_protocol::messages::client_messages::{deserialize_client_message, MicrobatClientMessage};
 use microbat_protocol::data::{Column, MDataType, MData};
-use microbat_protocol::server_messages::MicrobatServerMessage;
-use microbat_protocol::{read_message, MicrobatMessage};
+use microbat_protocol::messages::server_messages::MicrobatServerMessage;
+use microbat_protocol::messages::{read_message, MicrobatMessage};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, RwLock};
 use std::thread;
