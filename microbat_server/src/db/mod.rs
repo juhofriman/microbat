@@ -2,11 +2,12 @@ pub mod manager;
 
 use std::{sync::{Arc, RwLock}, vec};
 
+use microbat_protocol::data::{table_model::{DataDescription, DataRow, Column}, data_values::{MData, MDataType}};
+
 use crate::sql::parser::{
     parse_sql, ParseError,
     SqlClause::{Select, ShowTables},
 };
-use microbat_protocol::data::{Column, MData, DataDescription, DataRow, MDataType};
 
 use self::manager::{DatabaseManager, MicrobatDataError};
 

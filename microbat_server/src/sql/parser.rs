@@ -161,7 +161,7 @@ mod tests {
 
     use std::panic;
 
-    use microbat_protocol::data::MData;
+    use microbat_protocol::data::data_values::MData;
 
     use super::*;
 

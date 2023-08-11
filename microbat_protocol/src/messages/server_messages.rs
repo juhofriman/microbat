@@ -1,5 +1,5 @@
 use crate::{
-    data::*, static_values as values, MicrobatProtocolError
+    static_values as values, MicrobatProtocolError, data::{table_model::{DataDescription, Column, DataRow}, data_values::{MDataType, deserialize_data_column}}
 };
 use std::fmt::{Display, Formatter};
 
@@ -157,7 +157,7 @@ pub fn deserialize_server_message(
 #[cfg(test)]
 mod server_message_tests {
 
-    use crate::messages::serialization_test_util::assert_serialisation;
+    use crate::{messages::serialization_test_util::assert_serialisation, data::data_values::MData};
 
     use super::*;
 

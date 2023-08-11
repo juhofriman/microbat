@@ -1,5 +1,6 @@
-use microbat_protocol::data::{Column, MData};
 use std::collections::HashMap;
+
+use microbat_protocol::data::{table_model::Column, data_values::MData};
 
 #[derive(Debug)]
 pub struct MicrobatDataError {
@@ -111,7 +112,7 @@ impl DatabaseManager for InMemoryManager {
 #[cfg(test)]
 mod in_memory_db_tests {
     use super::*;
-    use microbat_protocol::data::MDataType;
+    use microbat_protocol::data::data_values::MDataType;
 
     #[test]
     fn test_no_such_table() {

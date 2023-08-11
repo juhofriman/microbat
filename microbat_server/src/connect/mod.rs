@@ -1,5 +1,6 @@
+use microbat_protocol::data::data_values::{MDataType, MData};
+use microbat_protocol::data::table_model::Column;
 use microbat_protocol::messages::client_messages::{deserialize_client_message, MicrobatClientMessage};
-use microbat_protocol::data::{Column, MDataType, MData};
 use microbat_protocol::messages::server_messages::MicrobatServerMessage;
 use microbat_protocol::messages::{read_message, MicrobatMessage};
 use std::net::{TcpListener, TcpStream};

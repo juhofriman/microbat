@@ -1,4 +1,5 @@
-use microbat_protocol::data::{Column, MData};
+use microbat_protocol::data::data_values::MData;
+use microbat_protocol::data::table_model::Column;
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
 
@@ -176,7 +177,7 @@ impl RenderableQueryResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use microbat_protocol::data::MDataType;
+    use microbat_protocol::data::data_values::MDataType;
 
     fn assert_expected_rendering(rendered: String, expected: Vec<&str>) {
         for (index, line) in rendered.split("\n").enumerate() {

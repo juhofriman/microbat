@@ -1,4 +1,5 @@
-use microbat_protocol::data::{MData, DataError};
+use microbat_protocol::data::data_values::{MData, DataError};
+
 
 #[derive(Debug)]
 pub struct EvaluationError {
