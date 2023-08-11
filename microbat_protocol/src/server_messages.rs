@@ -1,5 +1,5 @@
 use crate::{
-    data_representation::*, static_values as values, MicrobatMessage, MicrobatProtocolError,
+    data::*, static_values as values, MicrobatMessage, MicrobatProtocolError,
 };
 use std::fmt::{Display, Formatter};
 
@@ -22,7 +22,7 @@ impl Display for MicrobatServerMessage {
             MicrobatServerMessage::DataDescription(_) => write!(f, "DataDescription"),
             MicrobatServerMessage::DataRow(_) => write!(f, "DataRow"),
             MicrobatServerMessage::InsertResult(_) => write!(f, "InsertResult"),
-            MicrobatServerMessage::Ready => write!(f, "Ready"),
+            MicrobatServerMessage::Ready => write!(f, "Ready")
         }
     }
 }
@@ -117,7 +117,7 @@ pub fn deserialize_server_message(
                     String::from_utf8(bytes[pointer + 4..(pointer + 4 + column_length)].to_vec())?;
                 rows.columns.push(Column {
                     name,
-                    data_type: DataType::Integer,
+                    data_type: MDataType::Integer,
                 }); // TODO: this is WRONG!s
                 pointer += column_length + 4;
             }
@@ -186,7 +186,7 @@ mod server_message_tests {
             MicrobatServerMessage::DataDescription(DataDescription {
                 columns: vec![Column {
                     name: String::from("foo"),
-                    data_type: DataType::Varchar,
+                    data_type: MDataType::Varchar,
                 }],
             })
             .as_bytes(),
@@ -197,7 +197,7 @@ mod server_message_tests {
         assert_serialisation(
             "server row description",
             MicrobatServerMessage::DataRow(DataRow {
-                columns: vec![Data::Varchar(String::from("foo"))],
+                columns: vec![MData::Varchar(String::from("foo"))],
             })
             .as_bytes(),
             values::SERVER_MSG_TYPE_DATA_ROW,
@@ -207,7 +207,7 @@ mod server_message_tests {
         assert_serialisation(
             "server row description with null",
             MicrobatServerMessage::DataRow(DataRow {
-                columns: vec![Data::Null, Data::Varchar(String::from("foo"))],
+                columns: vec![MData::Null, MData::Varchar(String::from("foo"))],
             })
             .as_bytes(),
             values::SERVER_MSG_TYPE_DATA_ROW,
@@ -237,14 +237,14 @@ mod server_message_tests {
     #[test]
     fn test_server_datarow_deserialization_varchar() {
         let data_row = DataRow {
-            columns: vec![Data::Varchar(String::from("hello"))],
+            columns: vec![MData::Varchar(String::from("hello"))],
         };
         let message_bytes = MicrobatServerMessage::DataRow(data_row).as_bytes();
         let length = u32::from_le_bytes(message_bytes[1..5].try_into().unwrap()) as usize;
         let deserialized =
             deserialize_server_message(message_bytes[0], length, &message_bytes[5..]).unwrap();
         let expected_data_row = DataRow {
-            columns: vec![Data::Varchar(String::from("hello"))],
+            columns: vec![MData::Varchar(String::from("hello"))],
         };
         assert_eq!(
             deserialized,
@@ -255,14 +255,14 @@ mod server_message_tests {
     #[test]
     fn test_server_datarow_deserialization_integer() {
         let data_row = DataRow {
-            columns: vec![Data::Integer(83728)],
+            columns: vec![MData::Integer(83728)],
         };
         let message_bytes = MicrobatServerMessage::DataRow(data_row).as_bytes();
         let length = u32::from_le_bytes(message_bytes[1..5].try_into().unwrap()) as usize;
         let deserialized =
             deserialize_server_message(message_bytes[0], length, &message_bytes[5..]).unwrap();
         let expected_data_row = DataRow {
-            columns: vec![Data::Integer(83728)],
+            columns: vec![MData::Integer(83728)],
         };
         assert_eq!(
             deserialized,

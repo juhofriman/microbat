@@ -2,7 +2,7 @@ use crate::render_result::{
     MutationKind, QueryExecutionResult, RenderableMutationResult, RenderableQueryResult,
 };
 use microbat_protocol::client_messages::MicrobatClientMessage;
-use microbat_protocol::data_representation::Data;
+use microbat_protocol::data::MData;
 use microbat_protocol::protocol_error::MicrobatProtocolError;
 use microbat_protocol::server_messages::{deserialize_server_message, MicrobatServerMessage};
 use microbat_protocol::{read_message, MicrobatMessage};
@@ -131,8 +131,8 @@ fn read_ready(stream: &mut (impl Read + Write + Unpin)) -> Result<(), MicroBatCl
 
 fn read_data_rows_until_ready(
     stream: &mut (impl Read + Write + Unpin),
-) -> Result<Vec<Vec<Data>>, MicroBatClientError> {
-    let mut rows: Vec<Vec<Data>> = vec![];
+) -> Result<Vec<Vec<MData>>, MicroBatClientError> {
+    let mut rows: Vec<Vec<MData>> = vec![];
     loop {
         match read_message(stream, deserialize_server_message)? {
             MicrobatServerMessage::DataRow(row) => {

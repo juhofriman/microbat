@@ -1,4 +1,4 @@
-use microbat_protocol::data_representation::{Data, DataError};
+use microbat_protocol::data::{MData, DataError};
 
 #[derive(Debug)]
 pub struct EvaluationError {
@@ -12,7 +12,7 @@ impl From<DataError> for EvaluationError {
 }
 
 pub trait Expression {
-    fn eval(&self) -> Result<Data, EvaluationError>;
+    fn eval(&self) -> Result<MData, EvaluationError>;
     fn visualize(&self) -> String;
 }
 
@@ -28,8 +28,8 @@ impl<T> LeafExpression<T> {
 }
 
 impl Expression for LeafExpression<i32> {
-    fn eval(&self) -> Result<Data, EvaluationError> {
-        Ok(Data::Integer(self.data))
+    fn eval(&self) -> Result<MData, EvaluationError> {
+        Ok(MData::Integer(self.data))
     }
 
     fn visualize(&self) -> String {
@@ -42,12 +42,12 @@ pub struct NegateExpression {
 }
 
 impl Expression for NegateExpression {
-    fn eval(&self) -> Result<Data, EvaluationError> {
+    fn eval(&self) -> Result<MData, EvaluationError> {
         let val = self.expression.eval()?;
         match val {
-            Data::Null => todo!(),
-            Data::Integer(v) => Ok(Data::Integer(-v)),
-            Data::Varchar(_) => todo!(),
+            MData::Null => todo!(),
+            MData::Integer(v) => Ok(MData::Integer(-v)),
+            MData::Varchar(_) => todo!(),
         }
     }
 
@@ -73,7 +73,7 @@ pub struct OperationExpression {
 }
 
 impl Expression for OperationExpression {
-    fn eval(&self) -> Result<Data, EvaluationError> {
+    fn eval(&self) -> Result<MData, EvaluationError> {
         let l = self.left.eval()?;
         let r = self.right.eval()?;
         match self.operation {
@@ -118,7 +118,7 @@ mod tests {
         };
         match expr.eval() {
             Ok(val) => match val {
-                Data::Integer(v) => assert_eq!(v, 0),
+                MData::Integer(v) => assert_eq!(v, 0),
                 _ => panic!(),
             },
             Err(_) => panic!(),
@@ -138,7 +138,7 @@ mod tests {
         };
         match expr.eval() {
             Ok(val) => match val {
-                Data::Integer(v) => assert_eq!(v, 19),
+                MData::Integer(v) => assert_eq!(v, 19),
                 _ => panic!(),
             },
             Err(_) => panic!(),

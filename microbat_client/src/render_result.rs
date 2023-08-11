@@ -1,4 +1,4 @@
-use microbat_protocol::data_representation::{Column, Data};
+use microbat_protocol::data::{Column, MData};
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
 
@@ -52,7 +52,7 @@ impl RenderableMutationResult {
 /// Renderable query result that is a table
 pub struct RenderableQueryResult {
     columns: Vec<Column>,
-    rows: Vec<Vec<Data>>,
+    rows: Vec<Vec<MData>>,
     time: Duration,
     paddings: Vec<usize>,
 }
@@ -74,7 +74,7 @@ impl Display for RenderableQueryResult {
 impl RenderableQueryResult {
     /// Creates new RenderableQueryResults and calculates paddings for each column based
     /// on the lenght of the data in guven column.
-    pub fn new(columns: Vec<Column>, rows: Vec<Vec<Data>>, time: Duration) -> Self {
+    pub fn new(columns: Vec<Column>, rows: Vec<Vec<MData>>, time: Duration) -> Self {
         let paddings = RenderableQueryResult::paddings(&columns, &rows);
         RenderableQueryResult {
             columns,
@@ -89,25 +89,25 @@ impl RenderableQueryResult {
         self.rows.len()
     }
 
-    fn paddings(columns: &Vec<Column>, rows: &Vec<Vec<Data>>) -> Vec<usize> {
+    fn paddings(columns: &Vec<Column>, rows: &Vec<Vec<MData>>) -> Vec<usize> {
         let mut paddings: Vec<usize> = vec![];
 
         for (index, column) in columns.iter().enumerate() {
             let mut longest = column.name.len();
             for data in rows {
                 match &data[index] {
-                    Data::Varchar(d) => {
+                    MData::Varchar(d) => {
                         if d.len() > longest {
                             longest = d.len();
                         }
                     }
-                    Data::Integer(value) => {
+                    MData::Integer(value) => {
                         let lenght = value.to_string().len();
                         if lenght > longest {
                             longest = lenght;
                         }
                     }
-                    Data::Null => {
+                    MData::Null => {
                         if 4 > longest {
                             longest = 4
                         }
@@ -144,21 +144,21 @@ impl RenderableQueryResult {
         for (_index, row) in self.rows.iter().enumerate() {
             for (index, column) in row.iter().enumerate() {
                 match column {
-                    Data::Null => {
+                    MData::Null => {
                         write!(f, "| null")?;
                         let padding = self.paddings[index] - 4;
                         if padding > 0 {
                             write!(f, "{}", " ".repeat(padding))?;
                         }
                     }
-                    Data::Varchar(data) => {
+                    MData::Varchar(data) => {
                         write!(f, "| {}", data)?;
                         let padding = self.paddings[index] - data.len();
                         if padding > 0 {
                             write!(f, "{}", " ".repeat(padding))?;
                         }
                     }
-                    Data::Integer(data) => {
+                    MData::Integer(data) => {
                         write!(f, "| {}", data)?;
                         let padding = self.paddings[index] - data.to_string().len();
                         if padding > 0 {
@@ -176,7 +176,7 @@ impl RenderableQueryResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use microbat_protocol::data_representation::DataType;
+    use microbat_protocol::data::MDataType;
 
     fn assert_expected_rendering(rendered: String, expected: Vec<&str>) {
         for (index, line) in rendered.split("\n").enumerate() {
@@ -237,7 +237,7 @@ mod tests {
         let result = RenderableQueryResult::new(
             vec![Column {
                 name: String::from("foo"),
-                data_type: DataType::Integer,
+                data_type: MDataType::Integer,
             }],
             vec![],
             Duration::from_secs(1),
@@ -263,7 +263,7 @@ mod tests {
         let result = RenderableQueryResult::new(
             vec![Column {
                 name: String::from("this_is_long_name"),
-                data_type: DataType::Integer,
+                data_type: MDataType::Integer,
             }],
             vec![],
             Duration::from_secs(1),
@@ -289,9 +289,9 @@ mod tests {
         let result = RenderableQueryResult::new(
             vec![Column {
                 name: String::from("foo"),
-                data_type: DataType::Integer,
+                data_type: MDataType::Integer,
             }],
-            vec![vec![Data::Integer(1)]],
+            vec![vec![MData::Integer(1)]],
             Duration::from_secs(1),
         );
 
@@ -316,9 +316,9 @@ mod tests {
         let result = RenderableQueryResult::new(
             vec![Column {
                 name: String::from("foo"),
-                data_type: DataType::Integer,
+                data_type: MDataType::Integer,
             }],
-            vec![vec![Data::Null]],
+            vec![vec![MData::Null]],
             Duration::from_secs(1),
         );
 
@@ -343,9 +343,9 @@ mod tests {
         let result = RenderableQueryResult::new(
             vec![Column {
                 name: String::from("longer_name"),
-                data_type: DataType::Integer,
+                data_type: MDataType::Integer,
             }],
-            vec![vec![Data::Integer(1)]],
+            vec![vec![MData::Integer(1)]],
             Duration::from_secs(1),
         );
 
@@ -370,9 +370,9 @@ mod tests {
         let result = RenderableQueryResult::new(
             vec![Column {
                 name: String::from("a"),
-                data_type: DataType::Integer,
+                data_type: MDataType::Integer,
             }],
-            vec![vec![Data::Integer(24252)]],
+            vec![vec![MData::Integer(24252)]],
             Duration::from_secs(1),
         );
 
@@ -397,9 +397,9 @@ mod tests {
         let result = RenderableQueryResult::new(
             vec![Column {
                 name: String::from("longer_name"),
-                data_type: DataType::Varchar,
+                data_type: MDataType::Varchar,
             }],
-            vec![vec![Data::Varchar(String::from(
+            vec![vec![MData::Varchar(String::from(
                 "This is even longer value",
             ))]],
             Duration::from_secs(1),
@@ -427,16 +427,16 @@ mod tests {
             vec![
                 Column {
                     name: String::from("a"),
-                    data_type: DataType::Integer,
+                    data_type: MDataType::Integer,
                 },
                 Column {
                     name: String::from("a_value"),
-                    data_type: DataType::Integer,
+                    data_type: MDataType::Integer,
                 },
             ],
             vec![
-                vec![Data::Integer(3), Data::Integer(1234)],
-                vec![Data::Integer(5555), Data::Integer(984948)],
+                vec![MData::Integer(3), MData::Integer(1234)],
+                vec![MData::Integer(5555), MData::Integer(984948)],
             ],
             Duration::from_secs(1),
         );

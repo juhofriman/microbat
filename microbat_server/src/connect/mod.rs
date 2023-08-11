@@ -1,5 +1,5 @@
 use microbat_protocol::client_messages::{deserialize_client_message, MicrobatClientMessage};
-use microbat_protocol::data_representation::{Column, DataType, Data};
+use microbat_protocol::data::{Column, MDataType, MData};
 use microbat_protocol::server_messages::MicrobatServerMessage;
 use microbat_protocol::{read_message, MicrobatMessage};
 use std::net::{TcpListener, TcpStream};
@@ -24,34 +24,34 @@ pub fn run_microbat(server_opts: MicrobatServerOpts) {
             vec![
                 Column {
                     name: String::from("id"),
-                    data_type: DataType::Integer,
+                    data_type: MDataType::Integer,
                 },
                 Column {
                     name: String::from("name"),
-                    data_type: DataType::Varchar,
+                    data_type: MDataType::Varchar,
                 },
                 Column {
                     name: String::from("age"),
-                    data_type: DataType::Integer,
+                    data_type: MDataType::Integer,
                 },
                 Column {
                     name: String::from("quote"),
-                    data_type: DataType::Varchar,
+                    data_type: MDataType::Varchar,
                 },
             ],
         )
         .unwrap();
     init_db.insert("PEOPLE", vec![
-        Data::Integer(1),
-        Data::Varchar(String::from("Juho")),
-        Data::Integer(19),
-        Data::Varchar(String::from("Life is life")),
+        MData::Integer(1),
+        MData::Varchar(String::from("Juho")),
+        MData::Integer(19),
+        MData::Varchar(String::from("Life is life")),
     ]).unwrap();
     init_db.insert("PEOPLE", vec![
-        Data::Integer(2),
-        Data::Varchar(String::from("Simo")),
-        Data::Integer(19),
-        Data::Varchar(String::from("Only death is real")),
+        MData::Integer(2),
+        MData::Varchar(String::from("Simo")),
+        MData::Integer(19),
+        MData::Varchar(String::from("Only death is real")),
     ]).unwrap();
     init_db
         .create_table(
@@ -59,11 +59,11 @@ pub fn run_microbat(server_opts: MicrobatServerOpts) {
             vec![
                 Column {
                     name: String::from("id"),
-                    data_type: DataType::Integer,
+                    data_type: MDataType::Integer,
                 },
                 Column {
                     name: String::from("name"),
-                    data_type: DataType::Varchar,
+                    data_type: MDataType::Varchar,
                 },
             ],
         )

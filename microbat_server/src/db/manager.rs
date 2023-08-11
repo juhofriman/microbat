@@ -1,4 +1,4 @@
-use microbat_protocol::data_representation::{Column, Data};
+use microbat_protocol::data::{Column, MData};
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -11,8 +11,8 @@ pub trait DatabaseManager {
     fn get_table_meta(&self, name: &str) -> Result<&TableMetadata, MicrobatDataError>;
     fn create_table(&mut self, name: String, columns: Vec<Column>)
         -> Result<(), MicrobatDataError>;
-    fn insert(&mut self, table_name: &str, colums: Vec<Data>) -> Result<(), MicrobatDataError>;
-    fn fetch(&self, table_name: &str) -> Result<Vec<Vec<Data>>, MicrobatDataError>;
+    fn insert(&mut self, table_name: &str, colums: Vec<MData>) -> Result<(), MicrobatDataError>;
+    fn fetch(&self, table_name: &str) -> Result<Vec<Vec<MData>>, MicrobatDataError>;
 }
 
 #[derive(Debug)]
@@ -23,7 +23,7 @@ pub struct TableMetadata {
 
 pub struct InMemoryManager {
     tables: HashMap<String, TableMetadata>,
-    data: HashMap<String, Vec<Vec<Data>>>,
+    data: HashMap<String, Vec<Vec<MData>>>,
 }
 
 impl InMemoryManager {
@@ -72,7 +72,7 @@ impl DatabaseManager for InMemoryManager {
         Ok(())
     }
 
-    fn insert(&mut self, table_name: &str, colums: Vec<Data>) -> Result<(), MicrobatDataError> {
+    fn insert(&mut self, table_name: &str, colums: Vec<MData>) -> Result<(), MicrobatDataError> {
         let table_metadata = self.get_table_meta(table_name)?;
         for (index, column) in table_metadata.columns.iter().enumerate() {
             match colums.get(index) {
@@ -94,11 +94,11 @@ impl DatabaseManager for InMemoryManager {
         Ok(())
     }
 
-    fn fetch(&self, table_name: &str) -> Result<Vec<Vec<Data>>, MicrobatDataError> {
+    fn fetch(&self, table_name: &str) -> Result<Vec<Vec<MData>>, MicrobatDataError> {
         self.get_table_meta(table_name)?;
-        let mut result: Vec<Vec<Data>> = vec![];
+        let mut result: Vec<Vec<MData>> = vec![];
         for row in self.data.get(table_name).unwrap() {
-            let mut clone_row: Vec<Data> = vec![];
+            let mut clone_row: Vec<MData> = vec![];
             for item in row {
                 clone_row.push(item.clone());
             }
@@ -111,7 +111,7 @@ impl DatabaseManager for InMemoryManager {
 #[cfg(test)]
 mod in_memory_db_tests {
     use super::*;
-    use microbat_protocol::data_representation::DataType;
+    use microbat_protocol::data::MDataType;
 
     #[test]
     fn test_no_such_table() {
@@ -129,7 +129,7 @@ mod in_memory_db_tests {
             String::from("foo"),
             vec![Column {
                 name: String::from("id"),
-                data_type: DataType::Integer,
+                data_type: MDataType::Integer,
             }],
         );
         assert!(create_res.is_ok());
@@ -149,7 +149,7 @@ mod in_memory_db_tests {
             String::from("foo"),
             vec![Column {
                 name: String::from("id"),
-                data_type: DataType::Integer,
+                data_type: MDataType::Integer,
             }],
         );
         assert!(create_res.is_ok());
@@ -158,7 +158,7 @@ mod in_memory_db_tests {
             String::from("foo"),
             vec![Column {
                 name: String::from("id"),
-                data_type: DataType::Integer,
+                data_type: MDataType::Integer,
             }],
         );
         assert!(fails.is_err());
@@ -173,12 +173,12 @@ mod in_memory_db_tests {
             String::from("foo"),
             vec![Column {
                 name: String::from("id"),
-                data_type: DataType::Integer,
+                data_type: MDataType::Integer,
             }],
         );
         assert!(create_res.is_ok());
 
-        let insert_result = manager.insert("foo", vec![Data::Integer(1)]);
+        let insert_result = manager.insert("foo", vec![MData::Integer(1)]);
         assert!(insert_result.is_ok());
         let table_data = manager.fetch("foo").unwrap();
         assert_eq!(table_data.len(), 1);
@@ -192,12 +192,12 @@ mod in_memory_db_tests {
             String::from("foo"),
             vec![Column {
                 name: String::from("id"),
-                data_type: DataType::Integer,
+                data_type: MDataType::Integer,
             }],
         );
         assert!(create_res.is_ok());
 
-        let insert_result = manager.insert("foo", vec![Data::Varchar(String::from("hello"))]);
+        let insert_result = manager.insert("foo", vec![MData::Varchar(String::from("hello"))]);
         assert!(insert_result.is_err());
         assert_eq!(insert_result.unwrap_err().msg, "Can't put this here");
     }

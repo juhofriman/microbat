@@ -1,9 +1,9 @@
 extern crate core;
 
 pub mod client_messages;
-pub mod data_representation;
 pub mod protocol_error;
 pub mod server_messages;
+pub mod data;
 mod static_values;
 
 use crate::protocol_error::MicrobatProtocolError;
