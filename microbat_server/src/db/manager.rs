@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use microbat_protocol::data::{table_model::Column, data_values::MData};
+use microbat_protocol::data::{data_values::MData, table_model::Column};
 
 #[derive(Debug)]
 pub struct MicrobatDataError {

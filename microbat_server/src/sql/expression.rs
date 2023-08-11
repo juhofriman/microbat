@@ -1,14 +1,13 @@
-use microbat_protocol::data::data_values::{MData, DataError};
-
+use microbat_protocol::data::data_values::{DataError, MData};
 
 #[derive(Debug)]
 pub struct EvaluationError {
-    msg: String,
+    _msg: String,
 }
 
 impl From<DataError> for EvaluationError {
     fn from(value: DataError) -> Self {
-        EvaluationError { msg: value.msg }
+        EvaluationError { _msg: value.msg }
     }
 }
 
@@ -63,8 +62,6 @@ impl Expression for NegateExpression {
 pub enum Operation {
     Plus,
     Minus,
-    Multiply,
-    Divide,
 }
 
 pub struct OperationExpression {
@@ -80,8 +77,6 @@ impl Expression for OperationExpression {
         match self.operation {
             Operation::Plus => Ok(l.apply_plus(r)?),
             Operation::Minus => Ok(l.apply_minus(r)?),
-            Operation::Multiply => todo!(),
-            Operation::Divide => todo!(),
         }
     }
 

@@ -83,6 +83,8 @@ impl Lexer {
     }
 
     /// Checks if lexer has more tokens
+    /// This has tests but it's not used right now
+    #[allow(dead_code)]
     pub fn has_next(&self) -> bool {
         self.current_position < self.tokens.len()
     }
@@ -94,18 +96,19 @@ impl Lexer {
 
     pub fn peek_is(&self, expected: &Token) -> bool {
         match self.peek() {
-            Some(token) => token == expected, 
-            None => false, 
-        }
-    }
-    
-    pub fn next_identifier(&mut self) -> Result<String, LexingError> {
-        match self.next() {
-            Token::IDENTIFIER(value) => Ok(value.to_owned()),
-           _ => Err(LexingError { kind: LexingErrorKind::ExpectingIdentifier}) 
+            Some(token) => token == expected,
+            None => false,
         }
     }
 
+    pub fn next_identifier(&mut self) -> Result<String, LexingError> {
+        match self.next() {
+            Token::IDENTIFIER(value) => Ok(value.to_owned()),
+            _ => Err(LexingError {
+                kind: LexingErrorKind::ExpectingIdentifier,
+            }),
+        }
+    }
 }
 
 /// Error occuring during the lexing phase

@@ -1,4 +1,4 @@
-use super::data_values::{MDataType, MData};
+use super::data_values::{MData, MDataType};
 
 /// Serializable data description of incoming rows in result set.
 #[derive(PartialEq, Debug)]

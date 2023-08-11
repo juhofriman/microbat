@@ -1,7 +1,7 @@
 extern crate core;
 
-pub mod messages;
 pub mod data;
+pub mod messages;
 mod static_values;
 
 use std::string::FromUtf8Error;

@@ -1,8 +1,14 @@
 pub mod manager;
 
-use std::{sync::{Arc, RwLock}, vec};
+use std::{
+    sync::{Arc, RwLock},
+    vec,
+};
 
-use microbat_protocol::data::{table_model::{DataDescription, DataRow, Column}, data_values::{MData, MDataType}};
+use microbat_protocol::data::{
+    data_values::{MData, MDataType},
+    table_model::{Column, DataDescription, DataRow},
+};
 
 use crate::sql::parser::{
     parse_sql, ParseError,
@@ -49,12 +55,15 @@ pub fn execute_sql(
                 })
             }
 
-            Ok(QueryResult::Table(DataDescription {
-                columns: vec![Column {
-                    name: String::from("table"),
-                    data_type: MDataType::Varchar,
-                }]
-            }, rows)) 
+            Ok(QueryResult::Table(
+                DataDescription {
+                    columns: vec![Column {
+                        name: String::from("table"),
+                        data_type: MDataType::Varchar,
+                    }],
+                },
+                rows,
+            ))
         }
         Select(projection, from) => {
             let database = manager.read().expect("RwLock poisoned");
@@ -62,7 +71,7 @@ pub fn execute_sql(
             let table = database.fetch(from.get(0).unwrap())?;
             let mut columns: Vec<Column> = vec![];
             let mut data_rows: Vec<MData> = vec![];
-            for row in table.into_iter() {
+            for _row in table.into_iter() {
                 for (index, expr) in projection.iter().enumerate() {
                     match expr.eval() {
                         Ok(val) => match val {

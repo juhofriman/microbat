@@ -69,10 +69,14 @@ pub fn parse_sql(sql: String) -> Result<SqlClause, ParseError> {
                 while lexer.peek() == Some(&Token::COMMA) {
                     lexer.next();
                     match lexer.next() {
-                       Token::IDENTIFIER(name) => {
+                        Token::IDENTIFIER(name) => {
                             from.push(name.to_owned());
-                        },
-                       _ => return Err(ParseError { kind: ParseErrorKind::UnexpectedToken })
+                        }
+                        _ => {
+                            return Err(ParseError {
+                                kind: ParseErrorKind::UnexpectedToken,
+                            })
+                        }
                     }
                 }
             }
@@ -251,7 +255,11 @@ mod tests {
     fn test_sql_parsing_only_with_projection() {
         assert_parsing("select 1;", vec![MData::Integer(1)], vec![]);
         assert_parsing("select 1 + 52;", vec![MData::Integer(53)], vec![]);
-        assert_parsing("select 1, 2;", vec![MData::Integer(1), MData::Integer(2)], vec![]);
+        assert_parsing(
+            "select 1, 2;",
+            vec![MData::Integer(1), MData::Integer(2)],
+            vec![],
+        );
         assert_parsing(
             "select 1, 2, 3, 4;",
             vec![
@@ -260,19 +268,27 @@ mod tests {
                 MData::Integer(3),
                 MData::Integer(4),
             ],
-            vec![]
+            vec![],
         );
         assert_parsing(
             "select (1 + 1), (6 - (2 + 3));",
             vec![MData::Integer(2), MData::Integer(1)],
-            vec![]
+            vec![],
         );
     }
 
     #[test]
     fn test_from_parsing() {
-        assert_parsing("select 1 from bar", vec![MData::Integer(1)], vec![String::from("BAR")]);
-        assert_parsing("select 1 from foo, bar", vec![MData::Integer(1)], vec![String::from("FOO"), String::from("BAR")]);
+        assert_parsing(
+            "select 1 from bar",
+            vec![MData::Integer(1)],
+            vec![String::from("BAR")],
+        );
+        assert_parsing(
+            "select 1 from foo, bar",
+            vec![MData::Integer(1)],
+            vec![String::from("FOO"), String::from("BAR")],
+        );
     }
 
     fn assert_parsing(input: &str, expected_projections: Vec<MData>, expected_from: Vec<String>) {
@@ -281,7 +297,10 @@ mod tests {
             SqlClause::Select(projections, from) => {
                 assert_eq!(projections.len(), expected_projections.len());
                 for (index, expecter_result) in expected_projections.into_iter().enumerate() {
-                    assert_eq!(projections[index].eval().expect("Can't eval"), expecter_result);
+                    assert_eq!(
+                        projections[index].eval().expect("Can't eval"),
+                        expecter_result
+                    );
                 }
                 if expected_from.len() > 0 {
                     assert_eq!(from, expected_from);

@@ -1,5 +1,9 @@
 use crate::{
-    static_values as values, MicrobatProtocolError, data::{table_model::{DataDescription, Column, DataRow}, data_values::{MDataType, deserialize_data_column}}
+    data::{
+        data_values::{deserialize_data_column, MDataType},
+        table_model::{Column, DataDescription, DataRow},
+    },
+    static_values as values, MicrobatProtocolError,
 };
 use std::fmt::{Display, Formatter};
 
@@ -24,7 +28,7 @@ impl Display for MicrobatServerMessage {
             MicrobatServerMessage::DataDescription(_) => write!(f, "DataDescription"),
             MicrobatServerMessage::DataRow(_) => write!(f, "DataRow"),
             MicrobatServerMessage::InsertResult(_) => write!(f, "InsertResult"),
-            MicrobatServerMessage::Ready => write!(f, "Ready")
+            MicrobatServerMessage::Ready => write!(f, "Ready"),
         }
     }
 }
@@ -157,7 +161,9 @@ pub fn deserialize_server_message(
 #[cfg(test)]
 mod server_message_tests {
 
-    use crate::{messages::serialization_test_util::assert_serialisation, data::data_values::MData};
+    use crate::{
+        data::data_values::MData, messages::serialization_test_util::assert_serialisation,
+    };
 
     use super::*;
 

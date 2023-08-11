@@ -1,6 +1,8 @@
-use microbat_protocol::data::data_values::{MDataType, MData};
+use microbat_protocol::data::data_values::{MData, MDataType};
 use microbat_protocol::data::table_model::Column;
-use microbat_protocol::messages::client_messages::{deserialize_client_message, MicrobatClientMessage};
+use microbat_protocol::messages::client_messages::{
+    deserialize_client_message, MicrobatClientMessage,
+};
 use microbat_protocol::messages::server_messages::MicrobatServerMessage;
 use microbat_protocol::messages::{read_message, MicrobatMessage};
 use std::net::{TcpListener, TcpStream};
@@ -42,18 +44,28 @@ pub fn run_microbat(server_opts: MicrobatServerOpts) {
             ],
         )
         .unwrap();
-    init_db.insert("PEOPLE", vec![
-        MData::Integer(1),
-        MData::Varchar(String::from("Juho")),
-        MData::Integer(19),
-        MData::Varchar(String::from("Life is life")),
-    ]).unwrap();
-    init_db.insert("PEOPLE", vec![
-        MData::Integer(2),
-        MData::Varchar(String::from("Simo")),
-        MData::Integer(19),
-        MData::Varchar(String::from("Only death is real")),
-    ]).unwrap();
+    init_db
+        .insert(
+            "PEOPLE",
+            vec![
+                MData::Integer(1),
+                MData::Varchar(String::from("Juho")),
+                MData::Integer(19),
+                MData::Varchar(String::from("Life is life")),
+            ],
+        )
+        .unwrap();
+    init_db
+        .insert(
+            "PEOPLE",
+            vec![
+                MData::Integer(2),
+                MData::Varchar(String::from("Simo")),
+                MData::Integer(19),
+                MData::Varchar(String::from("Only death is real")),
+            ],
+        )
+        .unwrap();
     init_db
         .create_table(
             String::from("DEPARTMENTS"),
@@ -122,7 +134,7 @@ fn handle_connection(mut stream: TcpStream, manager: &Arc<RwLock<impl DatabaseMa
                 }
             },
             Err(err) => {
-                println!("ERROR");
+                println!("{:?}", err);
                 break;
             }
         }

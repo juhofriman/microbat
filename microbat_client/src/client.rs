@@ -1,11 +1,13 @@
 use crate::render_result::{
     MutationKind, QueryExecutionResult, RenderableMutationResult, RenderableQueryResult,
 };
-use microbat_protocol::messages::client_messages::MicrobatClientMessage;
 use microbat_protocol::data::data_values::MData;
-use microbat_protocol::MicrobatProtocolError;
-use microbat_protocol::messages::server_messages::{deserialize_server_message, MicrobatServerMessage};
+use microbat_protocol::messages::client_messages::MicrobatClientMessage;
+use microbat_protocol::messages::server_messages::{
+    deserialize_server_message, MicrobatServerMessage,
+};
 use microbat_protocol::messages::{read_message, MicrobatMessage};
+use microbat_protocol::MicrobatProtocolError;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::Instant;
