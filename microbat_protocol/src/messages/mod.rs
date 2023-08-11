@@ -1,7 +1,7 @@
 pub mod client_messages;
 pub mod server_messages;
 
-use crate::protocol_error::MicrobatProtocolError;
+use crate::MicrobatProtocolError;
 use std::io::{Read, Write};
 use std::str;
 

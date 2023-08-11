@@ -1,5 +1,5 @@
 use crate::{
-    data::*, static_values as values, protocol_error::MicrobatProtocolError
+    data::*, static_values as values, MicrobatProtocolError
 };
 use std::fmt::{Display, Formatter};
 

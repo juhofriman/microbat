@@ -1,4 +1,4 @@
-use crate::{static_values as values, protocol_error::MicrobatProtocolError};
+use crate::{static_values as values, MicrobatProtocolError};
 
 use super::MicrobatMessage;
 

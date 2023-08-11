@@ -3,7 +3,7 @@ use crate::render_result::{
 };
 use microbat_protocol::messages::client_messages::MicrobatClientMessage;
 use microbat_protocol::data::MData;
-use microbat_protocol::protocol_error::MicrobatProtocolError;
+use microbat_protocol::MicrobatProtocolError;
 use microbat_protocol::messages::server_messages::{deserialize_server_message, MicrobatServerMessage};
 use microbat_protocol::messages::{read_message, MicrobatMessage};
 use std::io::{Read, Write};
