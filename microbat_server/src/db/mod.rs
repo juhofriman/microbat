@@ -7,7 +7,7 @@ use std::{
 
 use microbat_protocol::data::{
     data_values::{MData, MDataType, DataError},
-    table_model::{Column, DataRow, TableSchema, RelationTable},
+    table_model::{Column, DataRow, TableSchema},
 };
 
 use crate::sql::parser::{
@@ -65,14 +65,11 @@ pub fn execute_sql(
                 rows,
             ))
         }
-        Select(_projection, from) => {
+        Select(projection, from) => {
             let database = manager.read().expect("RwLock poisoned");
-            let table_meta = database.get_table_meta(from.get(0).unwrap())?;
-            let mut relation = RelationTable::new(table_meta.schema.clone());
-            let rows = database.fetch(from.get(0).unwrap())?;
-            for row in rows.iter() {
-                relation.push_row(row.clone())?;
-            }
+
+            let relation = database.query(from.get(0).unwrap(), projection)?;
+
             return Ok(QueryResult::Table(
                 relation.schema, 
                 relation.rows,

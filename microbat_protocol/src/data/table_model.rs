@@ -90,7 +90,6 @@ impl RelationTable {
         }
         self.rows.push(DataRow::new(row));
         Ok(())
-        // Err(DataError { msg: String::from("can't put that here") })
     }
 
     pub fn len(&self) -> usize {

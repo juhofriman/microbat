@@ -2,18 +2,39 @@ use microbat_protocol::data::data_values::{DataError, MData};
 
 #[derive(Debug)]
 pub struct EvaluationError {
-    _msg: String,
+    pub msg: String,
 }
 
 impl From<DataError> for EvaluationError {
     fn from(value: DataError) -> Self {
-        EvaluationError { _msg: value.msg }
+        EvaluationError { msg: value.msg }
     }
 }
 
 pub trait Expression {
     fn eval(&self) -> Result<MData, EvaluationError>;
     fn visualize(&self) -> String;
+}
+
+#[derive(Debug)]
+pub struct ReferenceExpression {
+    name: String,
+}
+
+impl ReferenceExpression {
+    pub fn new(name: String) -> Self {
+        Self { name }
+    }
+}
+
+impl Expression for ReferenceExpression {
+    fn eval(&self) -> Result<MData, EvaluationError> {
+        Ok(MData::ColumnRef(self.name.clone()))
+    }
+
+    fn visualize(&self) -> String {
+        todo!()
+    }
 }
 
 #[derive(Debug)]
@@ -45,6 +66,7 @@ impl Expression for NegateExpression {
     fn eval(&self) -> Result<MData, EvaluationError> {
         let val = self.expression.eval()?;
         match val {
+            MData::ColumnRef(_) => todo!(),
             MData::Null => todo!(),
             MData::Integer(v) => Ok(MData::Integer(-v)),
             MData::Varchar(_) => todo!(),

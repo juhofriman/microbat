@@ -19,6 +19,7 @@ impl Display for DataError {
 /// See `matcher(&self)` in `Data` implementation.
 #[derive(Debug, PartialEq, Clone)]
 pub enum MDataType {
+    ColumnRef,
     Null,
     Integer,
     Varchar,
@@ -30,6 +31,7 @@ pub enum MDataType {
 /// to return corresponding marker byte constant.
 #[derive(PartialEq, Debug, Clone)]
 pub enum MData {
+    ColumnRef(String),
     Null,
     Integer(i32),
     Varchar(String),
@@ -38,6 +40,7 @@ pub enum MData {
 impl MData {
     pub fn bytes(&self) -> Vec<u8> {
         match self {
+            MData::ColumnRef(_) => panic!("MData::Ref show never be serialized!"),
             MData::Null => vec![],
             MData::Varchar(value) => value.as_bytes().to_vec(),
             MData::Integer(value) => value.to_be_bytes().to_vec(),
@@ -46,6 +49,7 @@ impl MData {
 
     pub fn type_byte(&self) -> u8 {
         match self {
+            MData::ColumnRef(_) => panic!("MData::Ref show never be serialized!"),
             MData::Null => TYPE_BYTE_NULL,
             MData::Varchar(_) => TYPE_BYTE_VARCHAR,
             MData::Integer(_) => TYPE_BYTE_INTEGER,
@@ -53,6 +57,7 @@ impl MData {
     }
     pub fn matcher(&self) -> MDataType {
         match self {
+            MData::ColumnRef(_) => MDataType::ColumnRef, 
             MData::Null => MDataType::Null,
             MData::Integer(_) => MDataType::Integer,
             MData::Varchar(_) => MDataType::Varchar,

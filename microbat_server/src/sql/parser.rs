@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use super::expression::{
-    Expression, LeafExpression, NegateExpression, Operation, OperationExpression,
+    Expression, LeafExpression, NegateExpression, Operation, OperationExpression, ReferenceExpression,
 };
 use super::lexer::{Lexer, LexingError, LexingErrorKind, Token};
 
@@ -93,6 +93,7 @@ fn nud(lexer: &mut Lexer) -> Result<Box<dyn Expression>, ParseError> {
     let token = lexer.next();
     let rbp = token.rbp();
     match token {
+        Token::IDENTIFIER(v) => Ok(Box::new(ReferenceExpression::new(v.clone()))),
         Token::INTEGER(v) => Ok(Box::new(LeafExpression::new(*v))),
         Token::LPARENS => parse_expression(lexer, 0),
         Token::MINUS => Ok(Box::new(NegateExpression {
