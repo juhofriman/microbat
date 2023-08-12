@@ -6,8 +6,8 @@ use std::{
 };
 
 use microbat_protocol::data::{
-    data_values::{MData, MDataType},
-    table_model::{Column, DataDescription, DataRow},
+    data_values::{MData, MDataType, DataError},
+    table_model::{Column, DataRow, TableSchema, RelationTable},
 };
 
 use crate::sql::parser::{
@@ -15,7 +15,7 @@ use crate::sql::parser::{
     SqlClause::{Select, ShowTables},
 };
 
-use self::manager::{DatabaseManager, MicrobatDataError};
+use self::manager::{DatabaseManager};
 
 pub struct MicrobatQueryError {
     pub msg: String,
@@ -29,8 +29,8 @@ impl From<ParseError> for MicrobatQueryError {
     }
 }
 
-impl From<MicrobatDataError> for MicrobatQueryError {
-    fn from(value: MicrobatDataError) -> Self {
+impl From<DataError> for MicrobatQueryError {
+    fn from(value: DataError) -> Self {
         MicrobatQueryError {
             msg: format!("{}", value.msg),
         }
@@ -38,7 +38,7 @@ impl From<MicrobatDataError> for MicrobatQueryError {
 }
 
 pub enum QueryResult {
-    Table(DataDescription, Vec<DataRow>),
+    Table(TableSchema, Vec<DataRow>),
 }
 
 pub fn execute_sql(
@@ -56,7 +56,7 @@ pub fn execute_sql(
             }
 
             Ok(QueryResult::Table(
-                DataDescription {
+                TableSchema {
                     columns: vec![Column {
                         name: String::from("table"),
                         data_type: MDataType::Varchar,
@@ -65,35 +65,17 @@ pub fn execute_sql(
                 rows,
             ))
         }
-        Select(projection, from) => {
+        Select(_projection, from) => {
             let database = manager.read().expect("RwLock poisoned");
-
-            let table = database.fetch(from.get(0).unwrap())?;
-            let mut columns: Vec<Column> = vec![];
-            let mut data_rows: Vec<MData> = vec![];
-            for _row in table.into_iter() {
-                for (index, expr) in projection.iter().enumerate() {
-                    match expr.eval() {
-                        Ok(val) => match val {
-                            MData::Integer(v) => {
-                                let mut name = String::from("column_");
-                                name.push_str(index.to_string().as_str());
-                                columns.push(Column {
-                                    name,
-                                    data_type: MDataType::Integer,
-                                });
-                                data_rows.push(MData::Integer(v))
-                            }
-                            _ => panic!(),
-                        },
-                        Err(_) => panic!(),
-                    }
-                }
+            let table_meta = database.get_table_meta(from.get(0).unwrap())?;
+            let mut relation = RelationTable::new(table_meta.schema.clone());
+            let rows = database.fetch(from.get(0).unwrap())?;
+            for row in rows.iter() {
+                relation.push_row(row.clone())?;
             }
-            println!("{:?}", from);
             return Ok(QueryResult::Table(
-                DataDescription { columns },
-                vec![DataRow { columns: data_rows }],
+                relation.schema, 
+                relation.rows,
             ));
         }
     }

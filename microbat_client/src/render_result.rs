@@ -92,7 +92,6 @@ impl RenderableQueryResult {
 
     fn paddings(columns: &Vec<Column>, rows: &Vec<Vec<MData>>) -> Vec<usize> {
         let mut paddings: Vec<usize> = vec![];
-
         for (index, column) in columns.iter().enumerate() {
             let mut longest = column.name.len();
             for data in rows {

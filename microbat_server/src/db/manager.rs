@@ -1,25 +1,20 @@
 use std::collections::HashMap;
 
-use microbat_protocol::data::{data_values::MData, table_model::Column};
-
-#[derive(Debug)]
-pub struct MicrobatDataError {
-    pub msg: String,
-}
+use microbat_protocol::data::{data_values::{MData, DataError}, table_model::{Column, TableSchema}};
 
 pub trait DatabaseManager {
-    fn get_tables(&self) -> Result<Vec<String>, MicrobatDataError>;
-    fn get_table_meta(&self, name: &str) -> Result<&TableMetadata, MicrobatDataError>;
+    fn get_tables(&self) -> Result<Vec<String>, DataError>;
+    fn get_table_meta(&self, name: &str) -> Result<&TableMetadata, DataError>;
     fn create_table(&mut self, name: String, columns: Vec<Column>)
-        -> Result<(), MicrobatDataError>;
-    fn insert(&mut self, table_name: &str, colums: Vec<MData>) -> Result<(), MicrobatDataError>;
-    fn fetch(&self, table_name: &str) -> Result<Vec<Vec<MData>>, MicrobatDataError>;
+        -> Result<(), DataError>;
+    fn insert(&mut self, table_name: &str, colums: Vec<MData>) -> Result<(), DataError>;
+    fn fetch(&self, table_name: &str) -> Result<Vec<Vec<MData>>, DataError>;
 }
 
 #[derive(Debug)]
 pub struct TableMetadata {
     pub name: String,
-    pub columns: Vec<Column>,
+    pub schema: TableSchema, 
 }
 
 pub struct InMemoryManager {
@@ -37,7 +32,7 @@ impl InMemoryManager {
 }
 
 impl DatabaseManager for InMemoryManager {
-    fn get_tables(&self) -> Result<Vec<String>, MicrobatDataError> {
+    fn get_tables(&self) -> Result<Vec<String>, DataError> {
         let mut tables: Vec<String> = vec![];
         for (_, table) in self.tables.keys().enumerate() {
             tables.push(table.clone());
@@ -45,10 +40,10 @@ impl DatabaseManager for InMemoryManager {
         Ok(tables)
     }
 
-    fn get_table_meta(&self, name: &str) -> Result<&TableMetadata, MicrobatDataError> {
+    fn get_table_meta(&self, name: &str) -> Result<&TableMetadata, DataError> {
         match self.tables.get(name) {
             Some(table_metadata) => Ok(table_metadata),
-            None => Err(MicrobatDataError {
+            None => Err(DataError {
                 msg: format!("No such table: {}", name),
             }),
         }
@@ -58,34 +53,34 @@ impl DatabaseManager for InMemoryManager {
         &mut self,
         name: String,
         columns: Vec<Column>,
-    ) -> Result<(), MicrobatDataError> {
+    ) -> Result<(), DataError> {
         if self.tables.contains_key(&name) {
-            return Err(MicrobatDataError {
+            return Err(DataError {
                 msg: format!("Table already exists: {}", name),
             });
         }
         let table_metadata = TableMetadata {
             name: name.clone(),
-            columns,
+            schema: TableSchema::new(columns)?,
         };
         self.tables.insert(name.clone(), table_metadata);
         self.data.insert(name.clone(), vec![]);
         Ok(())
     }
 
-    fn insert(&mut self, table_name: &str, colums: Vec<MData>) -> Result<(), MicrobatDataError> {
+    fn insert(&mut self, table_name: &str, colums: Vec<MData>) -> Result<(), DataError> {
         let table_metadata = self.get_table_meta(table_name)?;
-        for (index, column) in table_metadata.columns.iter().enumerate() {
+        for (index, column) in table_metadata.schema.columns.iter().enumerate() {
             match colums.get(index) {
                 Some(data) => {
                     if column.data_type != data.matcher() {
-                        return Err(MicrobatDataError {
+                        return Err(DataError {
                             msg: String::from("Can't put this here"),
                         });
                     }
                 }
                 None => {
-                    return Err(MicrobatDataError {
+                    return Err(DataError {
                         msg: String::from("Column count mismatch"),
                     })
                 }
@@ -95,7 +90,7 @@ impl DatabaseManager for InMemoryManager {
         Ok(())
     }
 
-    fn fetch(&self, table_name: &str) -> Result<Vec<Vec<MData>>, MicrobatDataError> {
+    fn fetch(&self, table_name: &str) -> Result<Vec<Vec<MData>>, DataError> {
         self.get_table_meta(table_name)?;
         let mut result: Vec<Vec<MData>> = vec![];
         for row in self.data.get(table_name).unwrap() {
@@ -139,7 +134,7 @@ mod in_memory_db_tests {
         assert!(res.is_ok());
         let table_metadata = res.unwrap();
         assert_eq!(table_metadata.name, "foo");
-        assert_eq!(table_metadata.columns.len(), 1);
+        assert_eq!(table_metadata.schema.len(), 1);
     }
 
     #[test]

@@ -82,8 +82,11 @@ impl MData {
     }
 }
 
-pub fn deserialize_data_column(marker: u8, bytes: &[u8]) -> Result<MData, MicrobatProtocolError> {
-    match marker {
+pub fn deserialize_data_column(
+    marker_byte: u8,
+    bytes: &[u8],
+) -> Result<MData, MicrobatProtocolError> {
+    match marker_byte {
         TYPE_BYTE_NULL => Ok(MData::Null),
         TYPE_BYTE_INTEGER => {
             let value = i32::from_be_bytes(bytes.try_into().unwrap());
@@ -103,28 +106,40 @@ pub fn deserialize_data_column(marker: u8, bytes: &[u8]) -> Result<MData, Microb
 mod serialization_tests {
     use super::*;
 
+    // Macros for tests for creating MData values more easily
+    #[macro_export]
+    macro_rules! m_int {
+        ($x:literal) => {
+            MData::Integer($x)
+        };
+    }
+
+    #[macro_export]
+    macro_rules! m_varchar {
+        ($x:literal) => {
+            MData::Varchar(String::from($x))
+        };
+        ($x:expr) => {
+            MData::Varchar(String::from($x))
+        };
+    }
+
     // TODO Impl Display to display results (possibly in client?)
 
     #[test]
     fn test_type_bytes() {
-        assert_eq!(
-            MData::Varchar(String::from("")).type_byte(),
-            TYPE_BYTE_VARCHAR
-        );
-        assert_eq!(
-            MData::Varchar(String::from("foo")).type_byte(),
-            TYPE_BYTE_VARCHAR
-        );
-        assert_eq!(MData::Integer(1).type_byte(), TYPE_BYTE_INTEGER);
+        assert_eq!(m_varchar!("").type_byte(), TYPE_BYTE_VARCHAR);
+        assert_eq!(m_varchar!("foo").type_byte(), TYPE_BYTE_VARCHAR);
+        assert_eq!(m_int!(1).type_byte(), TYPE_BYTE_INTEGER);
     }
 
     #[test]
     fn test_bytes() {
         assert_eq!(MData::Null.bytes().len(), 0);
-        assert_eq!(MData::Varchar(String::from("")).bytes().len(), 0);
-        assert_eq!(MData::Varchar(String::from("foo")).bytes().len(), 3);
-        assert_eq!(MData::Integer(1).bytes().len(), 4);
-        assert_eq!(MData::Integer(5).bytes().len(), 4);
+        assert_eq!(m_varchar!("").bytes().len(), 0);
+        assert_eq!(m_varchar!("foo").bytes().len(), 3);
+        assert_eq!(m_int!(1).bytes().len(), 4);
+        assert_eq!(m_int!(5).bytes().len(), 4);
     }
 
     #[test]
@@ -141,7 +156,7 @@ mod serialization_tests {
     #[test]
     fn test_serialize_and_deserialize_varchar() {
         let value = "abba";
-        let bytes = MData::Varchar(String::from(value)).bytes();
+        let bytes = m_varchar!(value).bytes();
         let deserialized = deserialize_data_column(TYPE_BYTE_VARCHAR, &bytes);
         assert!(deserialized.is_ok());
         if let MData::Varchar(des_value) = deserialized.unwrap() {

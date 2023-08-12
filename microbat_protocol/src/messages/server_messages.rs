@@ -1,7 +1,7 @@
 use crate::{
     data::{
         data_values::{deserialize_data_column, MDataType},
-        table_model::{Column, DataDescription, DataRow},
+        table_model::{Column, DataRow, TableSchema},
     },
     static_values as values, MicrobatProtocolError,
 };
@@ -14,7 +14,7 @@ use super::MicrobatMessage;
 pub enum MicrobatServerMessage {
     Handshake,
     Error(String),
-    DataDescription(DataDescription),
+    DataDescription(TableSchema),
     DataRow(DataRow),
     InsertResult(u32),
     Ready,
@@ -114,7 +114,7 @@ pub fn deserialize_server_message(
             bytes.to_vec(),
         )?)),
         values::SERVER_MSG_TYPE_ROW_DESCRIPTION => {
-            let mut rows = DataDescription { columns: vec![] };
+            let mut rows = TableSchema { columns: vec![] };
             let mut pointer: usize = 0;
             while pointer < bytes.len() {
                 let column_length =
@@ -192,7 +192,7 @@ mod server_message_tests {
         );
         assert_serialisation(
             "server row description",
-            MicrobatServerMessage::DataDescription(DataDescription {
+            MicrobatServerMessage::DataDescription(TableSchema {
                 columns: vec![Column {
                     name: String::from("foo"),
                     data_type: MDataType::Varchar,

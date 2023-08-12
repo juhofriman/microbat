@@ -25,23 +25,11 @@ pub fn run_microbat(server_opts: MicrobatServerOpts) {
         .create_table(
             String::from("PEOPLE"),
             vec![
-                Column {
-                    name: String::from("id"),
-                    data_type: MDataType::Integer,
-                },
-                Column {
-                    name: String::from("name"),
-                    data_type: MDataType::Varchar,
-                },
-                Column {
-                    name: String::from("age"),
-                    data_type: MDataType::Integer,
-                },
-                Column {
-                    name: String::from("quote"),
-                    data_type: MDataType::Varchar,
-                },
-            ],
+                Column::new(String::from("id"), MDataType::Integer),
+                Column::new(String::from("name"), MDataType::Varchar),
+                Column::new(String::from("age"), MDataType::Integer),
+                Column::new(String::from("quote"), MDataType::Varchar),
+            ]
         )
         .unwrap();
     init_db
@@ -70,14 +58,8 @@ pub fn run_microbat(server_opts: MicrobatServerOpts) {
         .create_table(
             String::from("DEPARTMENTS"),
             vec![
-                Column {
-                    name: String::from("id"),
-                    data_type: MDataType::Integer,
-                },
-                Column {
-                    name: String::from("name"),
-                    data_type: MDataType::Varchar,
-                },
+                Column::new(String::from("id"), MDataType::Integer),
+                Column::new(String::from("name"), MDataType::Varchar),
             ],
         )
         .unwrap();
