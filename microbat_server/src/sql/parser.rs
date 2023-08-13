@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use super::expression::{
-    Expression, LeafExpression, NegateExpression, Operation, OperationExpression,
+    AsExpression, Expression, LeafExpression, NegateExpression, Operation, OperationExpression,
     ReferenceExpression,
 };
 use super::lexer::{Lexer, LexingError, LexingErrorKind, Token};
@@ -110,6 +110,10 @@ fn led(lexer: &mut Lexer, left: Box<dyn Expression>) -> Result<Box<dyn Expressio
     let token = lexer.next();
     let rbp = token.rbp();
     match token {
+        Token::AS => {
+            let identifier = lexer.next_identifier()?;
+            Ok(Box::new(AsExpression::new(identifier, left)))
+        }
         Token::PLUS => {
             let right = parse_expression(lexer, rbp)?;
             Ok(Box::new(OperationExpression {
@@ -139,6 +143,7 @@ impl Token {
             Token::INTEGER(_) => 1,
             Token::PLUS => 5,
             Token::MINUS => 5,
+            Token::AS => 2,
             Token::LPARENS => 50,
             Token::RPARENS => 1,
             _ => 0,
@@ -224,12 +229,7 @@ mod tests {
             &vec![],
         ) {
             Ok(val) => {
-                assert_eq!(
-                    val,
-                    evals_to,
-                    "{} did not eval as expected",
-                    input
-                );
+                assert_eq!(val, evals_to, "{} did not eval as expected", input);
             }
             Err(_) => panic!("Can't eval expression"),
         }

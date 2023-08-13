@@ -19,6 +19,28 @@ pub trait Expression {
     fn eval(&self, schema: &TableSchema, row: &Vec<MData>) -> Result<MData, EvaluationError>;
 }
 
+pub struct AsExpression {
+    name: String,
+    expression: Box<dyn Expression>,
+}
+
+impl AsExpression {
+    pub fn new(name: String, expression: Box<dyn Expression>) -> Self {
+        Self { name, expression }
+    }
+}
+
+impl Expression for AsExpression {
+    fn schema_column(&self, schema: &TableSchema, index: usize) -> Result<Column, EvaluationError> {
+        let sub = self.expression.schema_column(schema, index)?;
+        Ok(Column::new(self.name.clone(), sub.data_type.clone()))
+    }
+
+    fn eval(&self, schema: &TableSchema, row: &Vec<MData>) -> Result<MData, EvaluationError> {
+        self.expression.eval(schema, row)
+    }
+}
+
 #[derive(Debug)]
 pub struct ReferenceExpression {
     name: String,

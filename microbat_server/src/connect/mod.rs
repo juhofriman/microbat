@@ -63,6 +63,18 @@ pub fn run_microbat(server_opts: MicrobatServerOpts) {
             ],
         )
         .unwrap();
+    init_db
+        .insert(
+            "DEPARTMENTS",
+            vec![MData::Integer(1), MData::Varchar(String::from("Rustland"))],
+        )
+        .unwrap();
+    init_db
+        .insert(
+            "DEPARTMENTS",
+            vec![MData::Integer(2), MData::Varchar(String::from("Goland"))],
+        )
+        .unwrap();
     drop(init_db);
     let mut thread_id = 1;
     for stream in listener.incoming() {
