@@ -29,7 +29,7 @@ pub fn run_microbat(server_opts: MicrobatServerOpts) {
                 Column::new(String::from("name"), MDataType::Varchar),
                 Column::new(String::from("age"), MDataType::Integer),
                 Column::new(String::from("quote"), MDataType::Varchar),
-            ]
+            ],
         )
         .unwrap();
     init_db

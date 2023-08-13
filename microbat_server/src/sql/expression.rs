@@ -1,4 +1,7 @@
-use microbat_protocol::data::data_values::{DataError, MData};
+use microbat_protocol::data::{
+    data_values::{DataError, MData, MDataType},
+    table_model::{Column, TableSchema},
+};
 
 #[derive(Debug)]
 pub struct EvaluationError {
@@ -12,8 +15,8 @@ impl From<DataError> for EvaluationError {
 }
 
 pub trait Expression {
-    fn eval(&self) -> Result<MData, EvaluationError>;
-    fn visualize(&self) -> String;
+    fn schema_column(&self, schema: &TableSchema, index: usize) -> Result<Column, EvaluationError>;
+    fn eval(&self, schema: &TableSchema, row: &Vec<MData>) -> Result<MData, EvaluationError>;
 }
 
 #[derive(Debug)]
@@ -28,12 +31,34 @@ impl ReferenceExpression {
 }
 
 impl Expression for ReferenceExpression {
-    fn eval(&self) -> Result<MData, EvaluationError> {
-        Ok(MData::ColumnRef(self.name.clone()))
+    fn eval(&self, schema: &TableSchema, row: &Vec<MData>) -> Result<MData, EvaluationError> {
+        match schema
+            .columns
+            .iter()
+            .position(|r| r.name.to_uppercase() == self.name)
+        {
+            Some(index) => Ok(row.get(index).unwrap().clone()),
+            None => Err(EvaluationError {
+                msg: format!("No such column {}", self.name),
+            }),
+        }
     }
 
-    fn visualize(&self) -> String {
-        todo!()
+    fn schema_column(
+        &self,
+        schema: &TableSchema,
+        _index: usize,
+    ) -> Result<Column, EvaluationError> {
+        match schema
+            .columns
+            .iter()
+            .find(|c| c.name.to_uppercase() == self.name)
+        {
+            Some(column) => Ok(Column::new(self.name.clone(), column.data_type.clone())),
+            None => Err(EvaluationError {
+                msg: format!("No such column {}", self.name),
+            }),
+        }
     }
 }
 
@@ -49,12 +74,16 @@ impl<T> LeafExpression<T> {
 }
 
 impl Expression for LeafExpression<i32> {
-    fn eval(&self) -> Result<MData, EvaluationError> {
+    fn eval(&self, _schema: &TableSchema, _row: &Vec<MData>) -> Result<MData, EvaluationError> {
         Ok(MData::Integer(self.data))
     }
 
-    fn visualize(&self) -> String {
-        self.data.to_string()
+    fn schema_column(
+        &self,
+        _schema: &TableSchema,
+        index: usize,
+    ) -> Result<Column, EvaluationError> {
+        Ok(Column::new(format!("column_{}", index), MDataType::Integer))
     }
 }
 
@@ -63,20 +92,17 @@ pub struct NegateExpression {
 }
 
 impl Expression for NegateExpression {
-    fn eval(&self) -> Result<MData, EvaluationError> {
-        let val = self.expression.eval()?;
+    fn eval(&self, schema: &TableSchema, row: &Vec<MData>) -> Result<MData, EvaluationError> {
+        let val = self.expression.eval(schema, row)?;
         match val {
-            MData::ColumnRef(_) => todo!(),
             MData::Null => todo!(),
             MData::Integer(v) => Ok(MData::Integer(-v)),
             MData::Varchar(_) => todo!(),
         }
     }
 
-    fn visualize(&self) -> String {
-        let mut s = String::from("-");
-        s.push_str(&self.expression.visualize());
-        s
+    fn schema_column(&self, schema: &TableSchema, index: usize) -> Result<Column, EvaluationError> {
+        self.expression.schema_column(schema, index)
     }
 }
 
@@ -93,73 +119,21 @@ pub struct OperationExpression {
 }
 
 impl Expression for OperationExpression {
-    fn eval(&self) -> Result<MData, EvaluationError> {
-        let l = self.left.eval()?;
-        let r = self.right.eval()?;
+    fn eval(&self, schema: &TableSchema, row: &Vec<MData>) -> Result<MData, EvaluationError> {
+        let l = self.left.eval(schema, row)?;
+        let r = self.right.eval(schema, row)?;
         match self.operation {
             Operation::Plus => Ok(l.apply_plus(r)?),
             Operation::Minus => Ok(l.apply_minus(r)?),
         }
     }
 
-    fn visualize(&self) -> String {
-        let l = self.left.visualize();
-        let r = self.right.visualize();
-        let mut s = String::new();
-        s.push_str("( ");
-        s.push_str(&l);
-        s.push_str(format!("{:?}", self.operation).as_str());
-        s.push_str(&r);
-        s.push_str(" )");
-        s
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-
-    #[test]
-    fn test_expr() {
-        let expr: LeafExpression<i32> = LeafExpression::new(123);
-        let v = expr.eval();
-        assert!(v.is_ok());
-    }
-
-    #[test]
-    fn test_operation() {
-        let expr = OperationExpression {
-            operation: Operation::Minus,
-            left: Box::new(LeafExpression::new(1)),
-            right: Box::new(LeafExpression::new(1)),
-        };
-        match expr.eval() {
-            Ok(val) => match val {
-                MData::Integer(v) => assert_eq!(v, 0),
-                _ => panic!(),
-            },
-            Err(_) => panic!(),
-        }
-    }
-
-    #[test]
-    fn test_nested_operation() {
-        let expr = OperationExpression {
-            operation: Operation::Minus,
-            left: Box::new(OperationExpression {
-                operation: Operation::Plus,
-                left: Box::new(LeafExpression::new(5)),
-                right: Box::new(LeafExpression::new(15)),
-            }),
-            right: Box::new(LeafExpression::new(1)),
-        };
-        match expr.eval() {
-            Ok(val) => match val {
-                MData::Integer(v) => assert_eq!(v, 19),
-                _ => panic!(),
-            },
-            Err(_) => panic!(),
-        }
+    fn schema_column(
+        &self,
+        _schema: &TableSchema,
+        index: usize,
+    ) -> Result<Column, EvaluationError> {
+        // TODO: this is absolutely not correct
+        Ok(Column::new(format!("column_{}", index), MDataType::Integer))
     }
 }

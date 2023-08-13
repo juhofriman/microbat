@@ -96,7 +96,6 @@ impl RenderableQueryResult {
             let mut longest = column.name.len();
             for data in rows {
                 match &data[index] {
-                    MData::ColumnRef(_) => panic!("Column ref encountered in the wire"),
                     MData::Varchar(d) => {
                         if d.len() > longest {
                             longest = d.len();
@@ -145,7 +144,6 @@ impl RenderableQueryResult {
         for (_index, row) in self.rows.iter().enumerate() {
             for (index, column) in row.iter().enumerate() {
                 match column {
-                    MData::ColumnRef(_) => panic!("Column ref encountered in the wire"),
                     MData::Null => {
                         write!(f, "| null")?;
                         let padding = self.paddings[index] - 4;

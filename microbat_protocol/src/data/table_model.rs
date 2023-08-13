@@ -30,7 +30,9 @@ impl TableSchema {
 
 impl Clone for TableSchema {
     fn clone(&self) -> Self {
-        Self { columns: self.columns.clone() }
+        Self {
+            columns: self.columns.clone(),
+        }
     }
 }
 

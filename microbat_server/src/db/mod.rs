@@ -6,7 +6,7 @@ use std::{
 };
 
 use microbat_protocol::data::{
-    data_values::{MData, MDataType, DataError},
+    data_values::{DataError, MData, MDataType},
     table_model::{Column, DataRow, TableSchema},
 };
 
@@ -15,7 +15,7 @@ use crate::sql::parser::{
     SqlClause::{Select, ShowTables},
 };
 
-use self::manager::{DatabaseManager};
+use self::manager::DatabaseManager;
 
 pub struct MicrobatQueryError {
     pub msg: String,
@@ -70,10 +70,7 @@ pub fn execute_sql(
 
             let relation = database.query(from.get(0).unwrap(), projection)?;
 
-            return Ok(QueryResult::Table(
-                relation.schema, 
-                relation.rows,
-            ));
+            return Ok(QueryResult::Table(relation.schema, relation.rows));
         }
     }
 }

@@ -1,23 +1,29 @@
 use std::collections::HashMap;
 
-use microbat_protocol::data::{data_values::{MData, DataError}, table_model::{Column, TableSchema, RelationTable}};
+use microbat_protocol::data::{
+    data_values::{DataError, MData},
+    table_model::{Column, RelationTable, TableSchema},
+};
 
-use crate::sql::expression::{Expression, EvaluationError};
+use crate::sql::expression::{EvaluationError, Expression};
 
 pub trait DatabaseManager {
     fn get_tables(&self) -> Result<Vec<String>, DataError>;
     fn get_table_meta(&self, name: &str) -> Result<&TableMetadata, DataError>;
-    fn create_table(&mut self, name: String, columns: Vec<Column>)
-        -> Result<(), DataError>;
+    fn create_table(&mut self, name: String, columns: Vec<Column>) -> Result<(), DataError>;
     fn insert(&mut self, table_name: &str, colums: Vec<MData>) -> Result<(), DataError>;
     fn fetch(&self, table_name: &str) -> Result<Vec<Vec<MData>>, DataError>;
-    fn query(&self, table_name: &str, projection: Vec<Box<dyn Expression>>) -> Result<RelationTable, DataError>;
+    fn query(
+        &self,
+        table_name: &str,
+        projection: Vec<Box<dyn Expression>>,
+    ) -> Result<RelationTable, DataError>;
 }
 
 #[derive(Debug)]
 pub struct TableMetadata {
     pub name: String,
-    pub schema: TableSchema, 
+    pub schema: TableSchema,
 }
 
 pub struct InMemoryManager {
@@ -52,11 +58,7 @@ impl DatabaseManager for InMemoryManager {
         }
     }
 
-    fn create_table(
-        &mut self,
-        name: String,
-        columns: Vec<Column>,
-    ) -> Result<(), DataError> {
+    fn create_table(&mut self, name: String, columns: Vec<Column>) -> Result<(), DataError> {
         if self.tables.contains_key(&name) {
             return Err(DataError {
                 msg: format!("Table already exists: {}", name),
@@ -106,40 +108,25 @@ impl DatabaseManager for InMemoryManager {
         Ok(result)
     }
 
-    fn query(&self, table_name: &str, projection: Vec<Box<dyn Expression>>) -> Result<RelationTable, DataError> {
+    fn query(
+        &self,
+        table_name: &str,
+        projection: Vec<Box<dyn Expression>>,
+    ) -> Result<RelationTable, DataError> {
         let table_meta = self.get_table_meta(table_name)?;
 
-        let mut evaluated = vec![];
-        for expr in projection {
-            evaluated.push(expr.eval()?);
+        let mut schema_columns = vec![];
+
+        for (index, expr) in projection.iter().enumerate() {
+            schema_columns.push(expr.schema_column(&table_meta.schema, index)?);
         }
 
-        let mut schema_columns = vec![];
-        for (index, mdata) in evaluated.iter().enumerate() {
-            match mdata {
-                MData::ColumnRef(name) => {
-                    let res = table_meta.schema.columns.iter().find(|c| c.name.to_uppercase() == name.to_string()).unwrap();
-                    schema_columns.push(Column::new(name.to_string(), res.data_type.clone())); 
-                },
-                mdata => {
-                    schema_columns.push(Column::new(format!("column_{}", index), mdata.matcher()));
-                }
-            }
-        }
         let mut relation = RelationTable::new(TableSchema::new(schema_columns)?);
 
-        for row in self.fetch(table_name)?.into_iter() {
+        for row in self.fetch(table_name)?.iter() {
             let mut relation_row = vec![];
-            for expr in evaluated.iter() {
-                match expr {
-                    MData::ColumnRef(name) => {
-                        let res = table_meta.schema.columns.iter().position(|c| c.name.to_uppercase() == name.to_string()).unwrap();
-                        relation_row.push(row.get(res).unwrap().clone());
-                    },
-                    mdata => {
-                        relation_row.push(mdata.clone());
-                    }
-                }
+            for expr in projection.iter() {
+                relation_row.push(expr.eval(&table_meta.schema, row)?);
             }
             relation.push_row(relation_row)?;
         }
@@ -149,7 +136,7 @@ impl DatabaseManager for InMemoryManager {
 
 impl From<EvaluationError> for DataError {
     fn from(value: EvaluationError) -> Self {
-       Self { msg: value.msg } 
+        Self { msg: value.msg }
     }
 }
 
