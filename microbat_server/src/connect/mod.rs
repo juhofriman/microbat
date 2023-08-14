@@ -28,7 +28,6 @@ pub fn run_microbat(server_opts: MicrobatServerOpts) {
                 Column::new(String::from("id"), MDataType::Integer),
                 Column::new(String::from("name"), MDataType::Varchar),
                 Column::new(String::from("age"), MDataType::Integer),
-                Column::new(String::from("quote"), MDataType::Varchar),
             ],
         )
         .unwrap();
@@ -38,8 +37,7 @@ pub fn run_microbat(server_opts: MicrobatServerOpts) {
             vec![
                 MData::Integer(1),
                 MData::Varchar(String::from("Juho")),
-                MData::Integer(19),
-                MData::Varchar(String::from("Life is life")),
+                MData::Integer(40),
             ],
         )
         .unwrap();
@@ -50,16 +48,46 @@ pub fn run_microbat(server_opts: MicrobatServerOpts) {
                 MData::Integer(2),
                 MData::Varchar(String::from("Simo")),
                 MData::Integer(19),
-                MData::Varchar(String::from("Only death is real")),
             ],
         )
         .unwrap();
     init_db
+        .insert(
+            "PEOPLE",
+            vec![
+                MData::Integer(3),
+                MData::Varchar(String::from("Hermanni")),
+                MData::Integer(48),
+            ],
+        )
+        .unwrap();
+    init_db
+        .insert(
+            "PEOPLE",
+            vec![
+                MData::Integer(4),
+                MData::Varchar(String::from("Taavetti")),
+                MData::Integer(32),
+            ],
+        )
+        .unwrap();
+    init_db
+        .insert(
+            "PEOPLE",
+            vec![
+                MData::Integer(5),
+                MData::Varchar(String::from("Metusalem")),
+                MData::Integer(85),
+            ],
+        )
+        .unwrap();
+
+    init_db
         .create_table(
             String::from("DEPARTMENTS"),
             vec![
-                Column::new(String::from("id"), MDataType::Integer),
-                Column::new(String::from("name"), MDataType::Varchar),
+                Column::new(String::from("id_dep"), MDataType::Integer),
+                Column::new(String::from("name_dep"), MDataType::Varchar),
             ],
         )
         .unwrap();
@@ -73,6 +101,54 @@ pub fn run_microbat(server_opts: MicrobatServerOpts) {
         .insert(
             "DEPARTMENTS",
             vec![MData::Integer(2), MData::Varchar(String::from("Goland"))],
+        )
+        .unwrap();
+    init_db
+        .insert(
+            "DEPARTMENTS",
+            vec![MData::Integer(3), MData::Varchar(String::from("Javaland"))],
+        )
+        .unwrap();
+    init_db
+        .insert(
+            "DEPARTMENTS",
+            vec![MData::Integer(4), MData::Varchar(String::from("Cppland"))],
+        )
+        .unwrap();
+    init_db
+        .insert(
+            "DEPARTMENTS",
+            vec![
+                MData::Integer(5),
+                MData::Varchar(String::from("Nodejsland")),
+            ],
+        )
+        .unwrap();
+    init_db
+        .create_table(
+            String::from("MODES"),
+            vec![
+                Column::new(String::from("id_mode"), MDataType::Integer),
+                Column::new(String::from("name_mode"), MDataType::Varchar),
+            ],
+        )
+        .unwrap();
+    init_db
+        .insert(
+            "MODES",
+            vec![MData::Integer(1), MData::Varchar(String::from("soft"))],
+        )
+        .unwrap();
+    init_db
+        .insert(
+            "MODES",
+            vec![MData::Integer(2), MData::Varchar(String::from("medium"))],
+        )
+        .unwrap();
+    init_db
+        .insert(
+            "MODES",
+            vec![MData::Integer(3), MData::Varchar(String::from("hard"))],
         )
         .unwrap();
     drop(init_db);

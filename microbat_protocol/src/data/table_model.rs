@@ -26,6 +26,17 @@ impl TableSchema {
     pub fn len(&self) -> usize {
         self.columns.len()
     }
+
+    pub fn join(&self, other: TableSchema) -> Result<Self, DataError> {
+        let mut columns = vec![];
+        for c in self.columns.iter() {
+            columns.push(Column::new(c.name.clone(), c.data_type.clone()));
+        }
+        for c in other.columns.iter() {
+            columns.push(Column::new(c.name.clone(), c.data_type.clone()));
+        }
+        Self::new(columns)
+    }
 }
 
 impl Clone for TableSchema {

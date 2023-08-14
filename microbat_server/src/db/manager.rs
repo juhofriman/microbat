@@ -15,9 +15,14 @@ pub trait DatabaseManager {
     fn fetch(&self, table_name: &str) -> Result<Vec<Vec<MData>>, DataError>;
     fn query(
         &self,
-        table_name: &str,
+        table_name: Vec<String>,
         projection: Vec<Box<dyn Expression>>,
     ) -> Result<RelationTable, DataError>;
+    fn carthesian(
+        &self,
+        table: &str,
+        root_data: Vec<Vec<MData>>,
+    ) -> Result<Vec<Vec<MData>>, DataError>;
 }
 
 #[derive(Debug)]
@@ -110,27 +115,62 @@ impl DatabaseManager for InMemoryManager {
 
     fn query(
         &self,
-        table_name: &str,
+        tables: Vec<String>,
         projection: Vec<Box<dyn Expression>>,
     ) -> Result<RelationTable, DataError> {
-        let table_meta = self.get_table_meta(table_name)?;
-
         let mut schema_columns = vec![];
+        let mut data = vec![];
+        for table in tables.iter() {
+            data = self.carthesian(table, data)?;
+            let meta = self.get_table_meta(table)?;
+            for c in meta.schema.columns.iter() {
+                schema_columns.push(c.clone());
+            }
+        }
+        let query_schema = TableSchema::new(schema_columns)?;
 
+        let mut evaled_columns = vec![];
         for (index, expr) in projection.iter().enumerate() {
-            schema_columns.push(expr.schema_column(&table_meta.schema, index)?);
+            evaled_columns.push(expr.schema_column(&query_schema, index)?);
         }
 
-        let mut relation = RelationTable::new(TableSchema::new(schema_columns)?);
+        let mut relation = RelationTable::new(TableSchema::new(evaled_columns)?);
 
-        for row in self.fetch(table_name)?.iter() {
+        for row in data.iter() {
             let mut relation_row = vec![];
             for expr in projection.iter() {
-                relation_row.push(expr.eval(&table_meta.schema, row)?);
+                relation_row.push(expr.eval(&query_schema, row)?);
             }
             relation.push_row(relation_row)?;
         }
         Ok(relation)
+    }
+
+    fn carthesian(
+        &self,
+        table: &str,
+        root_data: Vec<Vec<MData>>,
+    ) -> Result<Vec<Vec<MData>>, DataError> {
+        let data = self.fetch(table)?;
+        if root_data.is_empty() {
+            return Ok(data);
+        }
+        let mut new_data = vec![];
+        for row in root_data.iter() {
+            for n_row in data.iter() {
+                let mut c = vec![];
+                for r in row.iter() {
+                    c.push(r.clone());
+                }
+                let mut d = vec![];
+                for r in n_row {
+                    d.push(r.clone());
+                }
+                let new_row = vec![c, d].concat();
+                new_data.push(new_row);
+            }
+        }
+        Ok(new_data)
     }
 }
 

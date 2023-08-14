@@ -68,7 +68,7 @@ pub fn execute_sql(
         Select(projection, from) => {
             let database = manager.read().expect("RwLock poisoned");
 
-            let relation = database.query(from.get(0).unwrap(), projection)?;
+            let relation = database.query(from, projection)?;
 
             return Ok(QueryResult::Table(relation.schema, relation.rows));
         }
